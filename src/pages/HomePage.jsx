@@ -97,12 +97,14 @@ const HomePage = () => {
                 }}
               >
                 <img
-                  src="/placeholder.svg?height=400&width=500"
+                  src="https://imgs.search.brave.com/2ewsRNheIJzNSiQa4KSnU2brLFvsuyXPYxoXlySGhhU/rs:fit:500:0:1:0/g:ce/aHR0cHM6Ly9tZWRp/YS5pc3RvY2twaG90/by5jb20vaWQvMTQz/NDExOTAzMi9waG90/by9tb2NrLXVwLXNw/YWNlLWxhcHRvcC13/aXRoLWhhbmQtb2Yt/YnVzaW5lc3NtYW4t/cmVtb3RlLXdvcmst/b24tZGlnaXRhbC1t/YXJrZXRpbmctb3It/ZW1haWwtaW4uanBn/P3M9NjEyeDYxMiZ3/PTAmaz0yMCZjPUxM/d1Zub1RnRThVUW1i/VTE1NjZWWE9xelFN/dVZWclRqQTlLck8y/dlpGcm89"
                   alt="Latest Tech Gadgets"
                   style={{
                     maxWidth: "100%",
                     height: "auto",
-                    borderRadius: "12px",
+                    // borderRadius: "2px",
+                    borderTopLeftRadius:"30px",
+                    borderBottomRightRadius:"30px"
                   }}
                 />
               </Box>

@@ -1,7 +1,7 @@
 export const products = [
   {
     id: 1,
-    name: "iPhone 15 Pro Max",
+    name: "iPhone 15 Pro Max ",
     brand: "Apple",
     category: "smartphones",
     price: 1199,
