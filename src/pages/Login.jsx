@@ -22,7 +22,7 @@ const Login = () => {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    rememberMe: false,
+    rememberMe: false, // kept for UI, not used for storage decision
   })
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState({})
@@ -34,50 +34,55 @@ const Login = () => {
       ...prev,
       [name]: name === "rememberMe" ? checked : value,
     }))
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }))
-    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }))
   }
 
   const validateForm = () => {
     const newErrors = {}
-
     if (!formData.email) {
       newErrors.email = "Email is required"
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Email is invalid"
     }
-
-    if (!formData.password) {
-      newErrors.password = "Password is required"
-    } else if (formData.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters"
-    }
-
+    if (!formData.password) newErrors.password = "Password is required"
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-
     if (!validateForm()) return
-
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
-      // In a real app, you would handle authentication here
-      console.log("Login attempt:", formData)
+    try {
+      const res = await fetch("http://192.168.0.106:9090/api/v1/user/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setErrors({ api: data?.message || "Login failed" })
+        return
+      }
+
+      // ALWAYS store in localStorage
+      localStorage.setItem("token", data.token)
+
       navigate("/profile")
-    }, 1500)
+    } catch (err) {
+      setErrors({ api: "Network error" })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSocialLogin = (provider) => {
     console.log(`Login with ${provider}`)
-    // In a real app, integrate with social auth providers
   }
 
   return (
@@ -91,6 +96,12 @@ const Login = () => {
             Sign in to your GadgetLoop account
           </Typography>
         </Box>
+
+        {errors.api && (
+          <Typography variant="body2" color="error" align="center" sx={{ mb: 2 }}>
+            {errors.api}
+          </Typography>
+        )}
 
         <form onSubmit={handleSubmit}>
           <TextField

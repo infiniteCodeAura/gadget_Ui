@@ -15,6 +15,10 @@ import {
   Checkbox,
   FormControlLabel,
   Grid,
+  Radio,
+  RadioGroup,
+  FormControl,
+  FormLabel,
 } from "@mui/material"
 import { Visibility, VisibilityOff, Google, Facebook, Apple } from "@mui/icons-material"
 
@@ -26,6 +30,7 @@ const Signup = () => {
     email: "",
     password: "",
     confirmPassword: "",
+    role: "buyer",           // <-- new
     agreeToTerms: false,
     subscribeNewsletter: true,
   })
@@ -38,48 +43,32 @@ const Signup = () => {
     const { name, value, checked } = e.target
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "agreeToTerms" || name === "subscribeNewsletter" ? checked : value,
+      [name]: ["agreeToTerms", "subscribeNewsletter"].includes(name) ? checked : value,
     }))
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }))
-    }
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }))
   }
 
   const validateForm = () => {
     const newErrors = {}
 
-    if (!formData.firstName.trim()) {
-      newErrors.firstName = "First name is required"
-    }
+    if (!formData.firstName.trim()) newErrors.firstName = "First name is required"
+    if (!formData.lastName.trim()) newErrors.lastName = "Last name is required"
 
-    if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required"
-    }
+    if (!formData.email) newErrors.email = "Email is required"
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Email is invalid"
 
-    if (!formData.email) {
-      newErrors.email = "Email is required"
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Email is invalid"
-    }
-
-    if (!formData.password) {
-      newErrors.password = "Password is required"
-    } else if (formData.password.length < 8) {
+    if (!formData.password) newErrors.password = "Password is required"
+    else if (formData.password.length < 8)
       newErrors.password = "Password must be at least 8 characters"
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+    else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password))
       newErrors.password = "Password must contain uppercase, lowercase, and number"
-    }
 
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password"
-    } else if (formData.password !== formData.confirmPassword) {
+    if (!formData.confirmPassword) newErrors.confirmPassword = "Please confirm your password"
+    else if (formData.password !== formData.confirmPassword)
       newErrors.confirmPassword = "Passwords do not match"
-    }
 
-    if (!formData.agreeToTerms) {
+    if (!formData.agreeToTerms)
       newErrors.agreeToTerms = "You must agree to the terms and conditions"
-    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -87,23 +76,44 @@ const Signup = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-
     if (!validateForm()) return
-
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
-      // In a real app, you would handle user registration here
-      console.log("Signup attempt:", formData)
+    const payload = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      password: formData.password,
+      role: formData.role,
+    }
+
+    try {
+      const res = await fetch("http://192.168.0.106:9090/api/v1/user/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        // backend may send validation errors
+        const msg = data?.message || "Signup failed"
+        setErrors({ api: msg })
+        return
+      }
+
+      // success
       navigate("/login")
-    }, 1500)
+    } catch (err) {
+      setErrors({ api: "Network error" })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSocialSignup = (provider) => {
     console.log(`Signup with ${provider}`)
-    // In a real app, integrate with social auth providers
   }
 
   return (
@@ -117,6 +127,12 @@ const Signup = () => {
             Join GadgetLoop and discover amazing tech products
           </Typography>
         </Box>
+
+        {errors.api && (
+          <Typography variant="body2" color="error" align="center" sx={{ mb: 2 }}>
+            {errors.api}
+          </Typography>
+        )}
 
         <form onSubmit={handleSubmit}>
           <Grid container spacing={2}>
@@ -196,7 +212,10 @@ const Signup = () => {
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
+                  <IconButton
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    edge="end"
+                  >
                     {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                   </IconButton>
                 </InputAdornment>
@@ -204,13 +223,32 @@ const Signup = () => {
             }}
           />
 
+          {/* Role selector */}
+          <FormControl component="fieldset" margin="normal" fullWidth>
+            <FormLabel component="legend">I want to register as</FormLabel>
+            <RadioGroup
+              row
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+            >
+              <FormControlLabel value="buyer" control={<Radio />} label="Buyer" />
+              <FormControlLabel value="seller" control={<Radio />} label="Seller" />
+            </RadioGroup>
+          </FormControl>
+
           <Box sx={{ mt: 2 }}>
             <FormControlLabel
               control={
-                <Checkbox name="agreeToTerms" checked={formData.agreeToTerms} onChange={handleChange} color="primary" />
+                <Checkbox
+                  name="agreeToTerms"
+                  checked={formData.agreeToTerms}
+                  onChange={handleChange}
+                  color="primary"
+                />
               }
               label={
-                <Typography variant="body2">
+                <Typography variant="body2" required>
                   I agree to the{" "}
                   <Button variant="text" size="small" sx={{ p: 0, minWidth: "auto" }}>
                     Terms of Service
@@ -245,7 +283,14 @@ const Signup = () => {
             }
           />
 
-          <Button type="submit" fullWidth variant="contained" size="large" disabled={isLoading} sx={{ mt: 3, mb: 3 }}>
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            size="large"
+            disabled={isLoading}
+            sx={{ mt: 3, mb: 3 }}
+          >
             {isLoading ? "Creating Account..." : "Create Account"}
           </Button>
         </form>
@@ -257,13 +302,28 @@ const Signup = () => {
         </Divider>
 
         <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-          <Button fullWidth variant="outlined" startIcon={<Google />} onClick={() => handleSocialSignup("Google")}>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<Google />}
+            onClick={() => handleSocialSignup("Google")}
+          >
             Google
           </Button>
-          <Button fullWidth variant="outlined" startIcon={<Facebook />} onClick={() => handleSocialSignup("Facebook")}>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<Facebook />}
+            onClick={() => handleSocialSignup("Facebook")}
+          >
             Facebook
           </Button>
-          <Button fullWidth variant="outlined" startIcon={<Apple />} onClick={() => handleSocialSignup("Apple")}>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<Apple />}
+            onClick={() => handleSocialSignup("Apple")}
+          >
             Apple
           </Button>
         </Box>
