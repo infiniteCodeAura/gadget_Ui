@@ -1,6 +1,7 @@
 /* Profile.jsx — React E-commerce Platform */
 import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import {
   Container,
   Typography,
@@ -258,7 +259,7 @@ const Profile = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h3" gutterBottom>
+      <Typography variant="h4" gutterBottom>
         My Profile
       </Typography>
       <Grid container spacing={4}>
@@ -278,13 +279,39 @@ const Profile = () => {
                             <Avatar src={ profile? `${baseUrl+profile.profile}` :" "  } sx={{ width: 100, height: 100, mx: 'auto' }} />
 
         
-
-
-
             </Badge>
 
+
+
+
+
+
             <Box display="flex" alignItems="center" justifyContent="center" gap={1} mt={2}>
-              <Typography variant="h5">{firstName} {lastName}</Typography>
+              <Typography variant="h5" 
+              sx={{
+                fontWeight: "italic",
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+              }}
+              >
+                
+                {firstName} {lastName} 
+
+
+                {profile.verifiedAs === "pro" ? (
+  <VerifiedIcon sx={{ color: "green" }} fontSize="small" />
+) : profile.verifiedAs === "ultimate" ? (
+  <VerifiedIcon sx={{ color: "blue" }} fontSize="small" />
+) : null}
+
+                
+                 </Typography> 
+
+
+ 
+
+
               <IconButton size="small" onClick={() => setNameOpen(true)}>
                 <Edit fontSize="small" />
               </IconButton>
@@ -302,8 +329,12 @@ const Profile = () => {
             </Button>
 
             <Box mt={2}>
-              <Chip label={role} color="primary" /> <Chip label={category} color="secondary" />
+              {/* <Chip label={role} color="primary" /> <Chip label={category} color="secondary" /> */}
+<Chip label={role} color="primary" />
+                            {/*  <Chip label={profile.verifiedAs} color={profile.verifiedAs === "pro" ? "primary" : "secondary"}  /> */}
+
             </Box>
+            
             {verified && (
               <Box mt={1}>
                 <Chip icon={<CheckCircle />} label={`Verified ${verifiedAs}`} color="success" />
