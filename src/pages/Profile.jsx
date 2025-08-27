@@ -44,10 +44,14 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// const navitate = useNavigation()
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
+
+  
 });
 
 /* -------------------------------------------------- */

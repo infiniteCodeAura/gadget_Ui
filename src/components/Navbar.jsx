@@ -31,6 +31,7 @@ import {
   PersonAdd,
   Brightness4,
   Brightness7,
+  Logout,
 } from "@mui/icons-material"
 import { useCart } from "../context/CartContext.jsx"
 import { useTheme } from "../context/ThemeContext.jsx"
@@ -44,8 +45,17 @@ const Navbar = () => {
   const navigate = useNavigate()
   const location = useLocation()
 
+  /* determine login status once */
+  const token = localStorage.getItem("token")
+  const isLoggedIn = !!token
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem("token")
+    navigate("/login")
   }
 
   const menuItems = [
@@ -53,23 +63,33 @@ const Navbar = () => {
     { text: "Products", path: "/products", icon: <Inventory /> },
     { text: "Contact", path: "/contact", icon: <ContactMail /> },
     { text: "Profile", path: "/profile", icon: <Person /> },
-    { text: "Login", path: "/login", icon: <Login /> },
-    { text: "Sign Up", path: "/signup", icon: <PersonAdd /> },
   ]
+
+  /* add auth items only when NOT logged in */
+  if (!isLoggedIn) {
+    menuItems.push(
+      { text: "Login", path: "/login", icon: <Login /> },
+      { text: "Sign Up", path: "/signup", icon: <PersonAdd /> }
+    )
+  } else {
+    menuItems.push({ text: "Logout", path: "#", icon: <Logout />, action: handleLogout })
+  }
 
   const drawer = (
     <Box sx={{ width: 250, pt: 2 }}>
       <Typography variant="h6" sx={{ px: 2, mb: 2, fontWeight: "bold", color: "primary.main" }}>
         GadgetLoop
       </Typography>
-
       <List>
         {menuItems.map((item) => (
           <ListItem
             key={item.text}
-            component={Link}
-            to={item.path}
-            onClick={handleDrawerToggle}
+            component={item.action ? "div" : Link}
+            to={item.action ? undefined : item.path}
+            onClick={() => {
+              handleDrawerToggle()
+              if (item.action) item.action()
+            }}
             sx={{
               color: "inherit",
               textDecoration: "none",
@@ -101,13 +121,7 @@ const Navbar = () => {
       <AppBar position="fixed" elevation={2}>
         <Toolbar>
           {isMobile && (
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleDrawerToggle}
-              sx={{ mr: 2 }}
-            >
+            <IconButton color="inherit" edge="start" onClick={handleDrawerToggle} sx={{ mr: 2 }}>
               <MenuIcon />
             </IconButton>
           )}
@@ -129,44 +143,16 @@ const Navbar = () => {
 
           {!isMobile && (
             <Box sx={{ display: "flex", gap: 1, mr: 2 }}>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/"
-                sx={{
-                  backgroundColor: location.pathname === "/" ? "rgba(255,255,255,0.1)" : "transparent",
-                }}
-              >
+              <Button color="inherit" component={Link} to="/">
                 Home
               </Button>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/products"
-                sx={{
-                  backgroundColor: location.pathname === "/products" ? "rgba(255,255,255,0.1)" : "transparent",
-                }}
-              >
+              <Button color="inherit" component={Link} to="/products">
                 Products
               </Button>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/contact"
-                sx={{
-                  backgroundColor: location.pathname === "/contact" ? "rgba(255,255,255,0.1)" : "transparent",
-                }}
-              >
+              <Button color="inherit" component={Link} to="/contact">
                 Contact
               </Button>
-              <Button
-                color="inherit"
-                component={Link}
-                to="/profile"
-                sx={{
-                  backgroundColor: location.pathname === "/profile" ? "rgba(255,255,255,0.1)" : "transparent",
-                }}
-              >
+              <Button color="inherit" component={Link} to="/profile">
                 Profile
               </Button>
             </Box>
@@ -185,23 +171,21 @@ const Navbar = () => {
               </Badge>
             </IconButton>
 
-            {!isMobile && (
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <Button
-                  color="inherit"
-                  component={Link}
-                  to="/login"
-                  variant="outlined"
-                  size="small"
-                  sx={{ borderColor: "rgba(255,255,255,0.5)" }}
-                >
-                  Login
+            {!isMobile &&
+              (isLoggedIn ? (
+                <Button color="inherit" onClick={handleLogout} startIcon={<Logout />}>
+                  Logout
                 </Button>
-                <Button color="secondary" component={Link} to="/signup" variant="contained" size="small">
-                  Sign Up
-                </Button>
-              </Box>
-            )}
+              ) : (
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <Button color="inherit" component={Link} to="/login" variant="outlined" size="small">
+                    Login
+                  </Button>
+                  <Button color="secondary" component={Link} to="/signup" variant="contained" size="small">
+                    Sign Up
+                  </Button>
+                </Box>
+              ))}
           </Box>
         </Toolbar>
       </AppBar>
@@ -210,9 +194,7 @@ const Navbar = () => {
         variant="temporary"
         open={mobileOpen}
         onClose={handleDrawerToggle}
-        ModalProps={{
-          keepMounted: true, // Better open performance on mobile.
-        }}
+        ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: "block", md: "none" },
           "& .MuiDrawer-paper": { boxSizing: "border-box", width: 250 },
