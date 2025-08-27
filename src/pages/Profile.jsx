@@ -36,27 +36,17 @@ import {
   CloudUpload,
 } from '@mui/icons-material';
 
-/* -------------------------------------------------- */
-/* Axios instance                                     */
-/* -------------------------------------------------- */
 const api = axios.create({
   baseURL: '/api/v1',
   withCredentials: true,
 });
 
-// const navitate = useNavigation()
-
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
-
-  
 });
 
-/* -------------------------------------------------- */
-/* Main component                                     */
-/* -------------------------------------------------- */
 const Profile = () => {
   /* ---------- states ---------- */
   const [profile, setProfile] = useState(null);
@@ -82,17 +72,16 @@ const Profile = () => {
 
   /* avatar */
   const avatarRef = useRef(null);
+  const baseUrl = "http://192.168.0.106:9090/";
+
 
   /* per-field edit states */
-  /* name */
   const [nameOpen, setNameOpen] = useState(false);
   const [nameForm, setNameForm] = useState({ firstName: '', lastName: '' });
   const [nameLoading, setNameLoading] = useState(false);
-  /* email */
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailForm, setEmailForm] = useState({ email: '', password: '' });
   const [emailLoading, setEmailLoading] = useState(false);
-  /* password */
   const [pwdOpen, setPwdOpen] = useState(false);
   const [pwdForm, setPwdForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
   const [pwdLoading, setPwdLoading] = useState(false);
@@ -198,7 +187,7 @@ const Profile = () => {
     const file = e.target.files[0];
     if (!file) return;
     const fd = new FormData();
-    fd.append('image', file);
+    fd.append('profile', file); // <-- FIXED FIELD NAME
     try {
       await api.post('/user/profile/image', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -206,7 +195,7 @@ const Profile = () => {
       setSnack({ open: true, msg: 'Avatar updated', severity: 'success' });
       fetchProfile();
     } catch (err) {
-      setSnack({ open: true, msg: 'Upload failed', severity: 'error' });
+      setSnack({ open: true, msg: err.response?.data?.message || 'Upload failed', severity: 'error' });
     }
   };
 
@@ -262,20 +251,17 @@ const Profile = () => {
     }
   };
 
-  /* ---------- guards ---------- */
   if (loading) return <CircularProgress sx={{ mt: 10, mx: 'auto', display: 'block' }} />;
   if (!profile) return null;
 
   const { firstName, lastName, email: userEmail, role, category, avatar, verified, verifiedAs } = profile;
 
-  /* ---------- render ---------- */
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h3" gutterBottom>
         My Profile
       </Typography>
       <Grid container spacing={4}>
-        {/* left card */}
         <Grid item xs={12} md={4}>
           <Paper sx={{ p: 3, textAlign: 'center' }}>
             <Badge
@@ -287,10 +273,16 @@ const Profile = () => {
                 </IconButton>
               }
             >
-              <Avatar src={avatar || ''} sx={{ width: 100, height: 100, mx: 'auto' }} />
+              {/* <Avatar src={avatar || ''} sx={{ width: 100, height: 100, mx: 'auto' }} /> */}
+
+                            <Avatar src={ profile? `${baseUrl+profile.profile}` :" "  } sx={{ width: 100, height: 100, mx: 'auto' }} />
+
+        
+
+
+
             </Badge>
 
-            {/* Name */}
             <Box display="flex" alignItems="center" justifyContent="center" gap={1} mt={2}>
               <Typography variant="h5">{firstName} {lastName}</Typography>
               <IconButton size="small" onClick={() => setNameOpen(true)}>
@@ -298,7 +290,6 @@ const Profile = () => {
               </IconButton>
             </Box>
 
-            {/* Email */}
             <Box display="flex" alignItems="center" justifyContent="center" gap={1} mt={1}>
               <Typography variant="body2" color="text.secondary">{userEmail}</Typography>
               <IconButton size="small" onClick={() => setEmailOpen(true)}>
@@ -306,7 +297,6 @@ const Profile = () => {
               </IconButton>
             </Box>
 
-            {/* Password */}
             <Button variant="outlined" size="small" sx={{ mt: 1 }} onClick={() => setPwdOpen(true)}>
               Change password
             </Button>
@@ -336,9 +326,7 @@ const Profile = () => {
           )}
         </Grid>
 
-        {/* right content */}
         <Grid item xs={12} md={8}>
-          {/* analytics */}
           <Paper sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Analytics
@@ -362,7 +350,6 @@ const Profile = () => {
             </Grid>
           </Paper>
 
-          {/* addresses (buyers only) */}
           {role === 'buyer' && (
             <Paper sx={{ p: 3, mb: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -387,7 +374,6 @@ const Profile = () => {
             </Paper>
           )}
 
-          {/* seller info */}
           {role === 'seller' && (
             <>
               <Paper sx={{ p: 3 }}>
@@ -436,21 +422,8 @@ const Profile = () => {
       <Dialog open={nameOpen} onClose={() => setNameOpen(false)}>
         <DialogTitle>Edit Name</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="First Name"
-            fullWidth
-            value={nameForm.firstName}
-            onChange={(e) => setNameForm({ ...nameForm, firstName: e.target.value })}
-          />
-          <TextField
-            margin="dense"
-            label="Last Name"
-            fullWidth
-            value={nameForm.lastName}
-            onChange={(e) => setNameForm({ ...nameForm, lastName: e.target.value })}
-          />
+          <TextField autoFocus margin="dense" label="First Name" fullWidth value={nameForm.firstName} onChange={(e) => setNameForm({ ...nameForm, firstName: e.target.value })} />
+          <TextField margin="dense" label="Last Name" fullWidth value={nameForm.lastName} onChange={(e) => setNameForm({ ...nameForm, lastName: e.target.value })} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setNameOpen(false)}>Cancel</Button>
@@ -464,23 +437,8 @@ const Profile = () => {
       <Dialog open={emailOpen} onClose={() => setEmailOpen(false)}>
         <DialogTitle>Edit Email</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Email"
-            type="email"
-            fullWidth
-            value={emailForm.email}
-            onChange={(e) => setEmailForm({ ...emailForm, email: e.target.value })}
-          />
-          <TextField
-            margin="dense"
-            label="Current Password"
-            type="password"
-            fullWidth
-            value={emailForm.password}
-            onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })}
-          />
+          <TextField autoFocus margin="dense" label="Email" type="email" fullWidth value={emailForm.email} onChange={(e) => setEmailForm({ ...emailForm, email: e.target.value })} />
+          <TextField margin="dense" label="Current Password" type="password" fullWidth value={emailForm.password} onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEmailOpen(false)}>Cancel</Button>
@@ -494,31 +452,9 @@ const Profile = () => {
       <Dialog open={pwdOpen} onClose={() => setPwdOpen(false)}>
         <DialogTitle>Change Password</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Current Password"
-            type="password"
-            fullWidth
-            value={pwdForm.oldPassword}
-            onChange={(e) => setPwdForm({ ...pwdForm, oldPassword: e.target.value })}
-          />
-          <TextField
-            margin="dense"
-            label="New Password"
-            type="password"
-            fullWidth
-            value={pwdForm.newPassword}
-            onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
-          />
-          <TextField
-            margin="dense"
-            label="Confirm New Password"
-            type="password"
-            fullWidth
-            value={pwdForm.confirm}
-            onChange={(e) => setPwdForm({ ...pwdForm, confirm: e.target.value })}
-          />
+          <TextField autoFocus margin="dense" label="Current Password" type="password" fullWidth value={pwdForm.oldPassword} onChange={(e) => setPwdForm({ ...pwdForm, oldPassword: e.target.value })} />
+          <TextField margin="dense" label="New Password" type="password" fullWidth value={pwdForm.newPassword} onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })} />
+          <TextField margin="dense" label="Confirm New Password" type="password" fullWidth value={pwdForm.confirm} onChange={(e) => setPwdForm({ ...pwdForm, confirm: e.target.value })} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPwdOpen(false)}>Cancel</Button>
@@ -535,12 +471,7 @@ const Profile = () => {
           <Grid container spacing={2}>
             {['firstName', 'lastName', 'mobileNumber', 'email', 'address'].map((f) => (
               <Grid item xs={12} sm={6} key={f}>
-                <TextField
-                  label={f.charAt(0).toUpperCase() + f.slice(1)}
-                  fullWidth
-                  value={kycForm[f]}
-                  onChange={(e) => setKycForm({ ...kycForm, [f]: e.target.value })}
-                />
+                <TextField label={f.charAt(0).toUpperCase() + f.slice(1)} fullWidth value={kycForm[f]} onChange={(e) => setKycForm({ ...kycForm, [f]: e.target.value })} />
               </Grid>
             ))}
             <Grid item xs={12} sm={6}>
@@ -568,14 +499,7 @@ const Profile = () => {
         <DialogTitle>Add Address</DialogTitle>
         <DialogContent>
           {['label', 'street', 'city', 'state', 'zip'].map((f) => (
-            <TextField
-              key={f}
-              margin="dense"
-              label={f.charAt(0).toUpperCase() + f.slice(1)}
-              fullWidth
-              value={addrForm[f]}
-              onChange={(e) => setAddrForm({ ...addrForm, [f]: e.target.value })}
-            />
+            <TextField key={f} margin="dense" label={f.charAt(0).toUpperCase() + f.slice(1)} fullWidth value={addrForm[f]} onChange={(e) => setAddrForm({ ...addrForm, [f]: e.target.value })} />
           ))}
         </DialogContent>
         <DialogActions>
@@ -588,23 +512,10 @@ const Profile = () => {
       <Dialog open={photoUploadOpen} onClose={() => setPhotoUploadOpen(false)}>
         <DialogTitle>Upload Product Photo</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Product ID"
-            fullWidth
-            value={uploadProductId}
-            onChange={(e) => setUploadProductId(e.target.value)}
-          />
+          <TextField autoFocus margin="dense" label="Product ID" fullWidth value={uploadProductId} onChange={(e) => setUploadProductId(e.target.value)} />
           <Button variant="outlined" component="label" sx={{ mt: 2 }}>
             Choose Photo
-            <input
-              hidden
-              type="file"
-              accept="image/*"
-              ref={photoInputRef}
-              onChange={(e) => setUploadFile(e.target.files[0])}
-            />
+            <input hidden type="file" accept="image/*" ref={photoInputRef} onChange={(e) => setUploadFile(e.target.files[0])} />
           </Button>
           {uploadFile && <Typography variant="body2" sx={{ mt: 1 }}>{uploadFile.name}</Typography>}
         </DialogContent>
@@ -620,23 +531,10 @@ const Profile = () => {
       <Dialog open={videoUploadOpen} onClose={() => setVideoUploadOpen(false)}>
         <DialogTitle>Upload Product Video</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Product ID"
-            fullWidth
-            value={uploadProductId}
-            onChange={(e) => setUploadProductId(e.target.value)}
-          />
+          <TextField autoFocus margin="dense" label="Product ID" fullWidth value={uploadProductId} onChange={(e) => setUploadProductId(e.target.value)} />
           <Button variant="outlined" component="label" sx={{ mt: 2 }}>
             Choose Video
-            <input
-              hidden
-              type="file"
-              accept="video/*"
-              ref={videoInputRef}
-              onChange={(e) => setUploadFile(e.target.files[0])}
-            />
+            <input hidden type="file" accept="video/*" ref={videoInputRef} onChange={(e) => setUploadFile(e.target.files[0])} />
           </Button>
           {uploadFile && <Typography variant="body2" sx={{ mt: 1 }}>{uploadFile.name}</Typography>}
         </DialogContent>
@@ -648,12 +546,10 @@ const Profile = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
       <Snackbar open={snack.open} autoHideDuration={4000} onClose={() => setSnack({ ...snack, open: false })}>
         <Alert severity={snack.severity}>{snack.msg}</Alert>
       </Snackbar>
 
-      {/* hidden file input for avatar */}
       <input type="file" hidden ref={avatarRef} onChange={handleAvatarUpload} accept="image/*" />
     </Container>
   );
