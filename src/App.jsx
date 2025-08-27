@@ -13,6 +13,7 @@ import Login from "./pages/Login.jsx"
 import Signup from "./pages/Signup.jsx"
 import Contact from "./pages/Contact.jsx"
 import NotFound from "./pages/NotFound.jsx"
+import Dashboard from "./pages/Dashboard.jsx"
 
 function App() {
   const { theme } = useTheme()
@@ -39,6 +40,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Box>

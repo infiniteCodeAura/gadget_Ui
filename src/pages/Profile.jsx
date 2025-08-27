@@ -49,6 +49,13 @@ api.interceptors.request.use((config) => {
 });
 
 const Profile = () => {
+
+const token = localStorage.getItem("token");
+
+if (!token) {
+  window.location.href = "/login"; // Redirect to login if not authenticated
+}
+
   /* ---------- states ---------- */
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -257,8 +264,11 @@ const Profile = () => {
 
   const { firstName, lastName, email: userEmail, role, category, avatar, verified, verifiedAs } = profile;
 
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+
+
       <Typography variant="h4" gutterBottom>
         My Profile
       </Typography>
