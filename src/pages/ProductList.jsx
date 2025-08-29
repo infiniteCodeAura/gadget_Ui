@@ -1,302 +1,254 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useSearchParams } from "react-router-dom"
+/* HomePage.jsx – product listing with search, brand, price range, pagination */
+import React, { useEffect, useState, useCallback } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
+import axios from 'axios';
 import {
   Container,
-  Grid,
   Typography,
-  Box,
+  Grid,
+  Card,
+  CardMedia,
+  CardContent,
+  CardActions,
+  Button,
+  TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Slider,
-  Paper,
+  Box,
+  Pagination,
+  Skeleton,
   Chip,
-  TextField,
-  InputAdornment,
-  Drawer,
-  Button,
-  useMediaQuery,
-  useTheme,
-} from "@mui/material"
-import { Search, FilterList, Clear } from "@mui/icons-material"
-import { products, categories, brands } from "../data/products.js"
-import ProductCard from "../components/ProductCard.jsx"
+  Slider,
+} from '@mui/material';
 
-const ProductList = () => {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"))
+const PAGE_SIZE = 20;
 
-  // Filter states
-  const [filteredProducts, setFilteredProducts] = useState(products)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "")
-  const [selectedBrand, setSelectedBrand] = useState("")
-  const [priceRange, setPriceRange] = useState([0, 3000])
-  const [sortBy, setSortBy] = useState("name")
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+/* ---------- helper ---------- */
+const paramsToObject = (searchParams) => {
+  const obj = {};
+  searchParams.forEach((val, key) => { obj[key] = val; });
+  return obj;
+};
 
-  // Filter and sort products
+/* ---------- debounce hook ---------- */
+function useDebounce(value, delay = 400) {
+  const [debounced, setDebounced] = useState(value);
   useEffect(() => {
-    let filtered = [...products]
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (product) =>
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.description.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-    }
-
-    // Category filter
-    if (selectedCategory) {
-      filtered = filtered.filter((product) => product.category === selectedCategory)
-    }
-
-    // Brand filter
-    if (selectedBrand) {
-      filtered = filtered.filter((product) => product.brand === selectedBrand)
-    }
-
-    // Price filter
-    filtered = filtered.filter((product) => product.price >= priceRange[0] && product.price <= priceRange[1])
-
-    // Sort products
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "price-low":
-          return a.price - b.price
-        case "price-high":
-          return b.price - a.price
-        case "rating":
-          return b.rating - a.rating
-        case "name":
-        default:
-          return a.name.localeCompare(b.name)
-      }
-    })
-
-    setFilteredProducts(filtered)
-  }, [searchTerm, selectedCategory, selectedBrand, priceRange, sortBy])
-
-  // Update URL params when category changes
-  useEffect(() => {
-    if (selectedCategory) {
-      setSearchParams({ category: selectedCategory })
-    } else {
-      setSearchParams({})
-    }
-  }, [selectedCategory, setSearchParams])
-
-  const handleClearFilters = () => {
-    setSearchTerm("")
-    setSelectedCategory("")
-    setSelectedBrand("")
-    setPriceRange([0, 3000])
-    setSortBy("name")
-    setSearchParams({})
-  }
-
-  const activeFiltersCount = [
-    searchTerm,
-    selectedCategory,
-    selectedBrand,
-    priceRange[0] > 0 || priceRange[1] < 3000,
-  ].filter(Boolean).length
-
-  const FiltersContent = () => (
-    <Box sx={{ p: 3, minWidth: { xs: 280, md: 300 } }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-        <Typography variant="h6">Filters</Typography>
-        {activeFiltersCount > 0 && (
-          <Button size="small" startIcon={<Clear />} onClick={handleClearFilters}>
-            Clear All
-          </Button>
-        )}
-      </Box>
-
-      {/* Search */}
-      <TextField
-        fullWidth
-        placeholder="Search products..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search />
-            </InputAdornment>
-          ),
-        }}
-        sx={{ mb: 3 }}
-      />
-
-      {/* Category Filter */}
-      <FormControl fullWidth sx={{ mb: 3 }}>
-        <InputLabel>Category</InputLabel>
-        <Select value={selectedCategory} label="Category" onChange={(e) => setSelectedCategory(e.target.value)}>
-          <MenuItem value="">All Categories</MenuItem>
-          {categories.map((category) => (
-            <MenuItem key={category.id} value={category.id}>
-              {category.name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      {/* Brand Filter */}
-      <FormControl fullWidth sx={{ mb: 3 }}>
-        <InputLabel>Brand</InputLabel>
-        <Select value={selectedBrand} label="Brand" onChange={(e) => setSelectedBrand(e.target.value)}>
-          <MenuItem value="">All Brands</MenuItem>
-          {brands.map((brand) => (
-            <MenuItem key={brand} value={brand}>
-              {brand}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
-      {/* Price Range */}
-      <Typography gutterBottom>
-        Price Range: ${priceRange[0]} - ${priceRange[1]}
-      </Typography>
-      <Slider
-        value={priceRange}
-        onChange={(e, newValue) => setPriceRange(newValue)}
-        valueLabelDisplay="auto"
-        min={0}
-        max={3000}
-        step={50}
-        sx={{ mb: 3 }}
-      />
-
-      {/* Active Filters */}
-      {activeFiltersCount > 0 && (
-        <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            Active Filters:
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-            {searchTerm && <Chip label={`Search: ${searchTerm}`} onDelete={() => setSearchTerm("")} size="small" />}
-            {selectedCategory && (
-              <Chip
-                label={categories.find((c) => c.id === selectedCategory)?.name}
-                onDelete={() => setSelectedCategory("")}
-                size="small"
-              />
-            )}
-            {selectedBrand && <Chip label={selectedBrand} onDelete={() => setSelectedBrand("")} size="small" />}
-            {(priceRange[0] > 0 || priceRange[1] < 3000) && (
-              <Chip
-                label={`$${priceRange[0]} - $${priceRange[1]}`}
-                onDelete={() => setPriceRange([0, 3000])}
-                size="small"
-              />
-            )}
-          </Box>
-        </Box>
-      )}
-    </Box>
-  )
-
-  return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h3" component="h1" gutterBottom>
-          Products
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Discover our complete collection of premium tech products
-        </Typography>
-      </Box>
-
-      <Grid container spacing={3}>
-        {/* Desktop Filters */}
-        {!isMobile && (
-          <Grid item md={3}>
-            <Paper elevation={1}>
-              <FiltersContent />
-            </Paper>
-          </Grid>
-        )}
-
-        {/* Products Section */}
-        <Grid item xs={12} md={9}>
-          {/* Mobile Filter Button & Sort */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 3,
-              flexWrap: "wrap",
-              gap: 2,
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              {isMobile && (
-                <Button variant="outlined" startIcon={<FilterList />} onClick={() => setMobileFiltersOpen(true)}>
-                  Filters {activeFiltersCount > 0 && `(${activeFiltersCount})`}
-                </Button>
-              )}
-              <Typography variant="body2" color="text.secondary">
-                {filteredProducts.length} products found
-              </Typography>
-            </Box>
-
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel>Sort by</InputLabel>
-              <Select value={sortBy} label="Sort by" onChange={(e) => setSortBy(e.target.value)}>
-                <MenuItem value="name">Name A-Z</MenuItem>
-                <MenuItem value="price-low">Price: Low to High</MenuItem>
-                <MenuItem value="price-high">Price: High to Low</MenuItem>
-                <MenuItem value="rating">Highest Rated</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Products Grid */}
-          {filteredProducts.length > 0 ? (
-            <Grid container spacing={3}>
-              {filteredProducts.map((product) => (
-                <Grid item xs={12} sm={6} lg={4} key={product.id}>
-                  <ProductCard product={product} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <Paper sx={{ p: 4, textAlign: "center" }}>
-              <Typography variant="h6" gutterBottom>
-                No products found
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Try adjusting your filters or search terms
-              </Typography>
-              <Button variant="contained" onClick={handleClearFilters}>
-                Clear All Filters
-              </Button>
-            </Paper>
-          )}
-        </Grid>
-      </Grid>
-
-      {/* Mobile Filters Drawer */}
-      <Drawer
-        anchor="left"
-        open={mobileFiltersOpen}
-        onClose={() => setMobileFiltersOpen(false)}
-        sx={{ display: { xs: "block", md: "none" } }}
-      >
-        <FiltersContent />
-      </Drawer>
-    </Container>
-  )
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
 }
 
-export default ProductList
+/* ---------- main component ---------- */
+const HomePage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  /* states */
+  const [products, setProducts]      = useState([]);
+  const [totalProducts, setTotal]    = useState(0);
+  const [loading, setLoading]        = useState(true);
+
+  /* query values */
+  const page     = Number(searchParams.get('page')) || 1;
+  const search   = searchParams.get('search') || '';
+  const category = searchParams.get('category') || '';
+  const brand    = searchParams.get('brand') || '';
+  const minPrice = searchParams.get('minPrice') || '';
+  const maxPrice = searchParams.get('maxPrice') || '';
+
+  /* debounced search for smoother UX */
+  const debouncedSearch = useDebounce(search);
+
+  /* ---------- fetch products ---------- */
+  const fetchProducts = useCallback(() => {
+    setLoading(true);
+
+    const params = new URLSearchParams({
+      page,
+      limit: PAGE_SIZE,
+      ...(debouncedSearch && { search: debouncedSearch }),
+      ...(category       && { category }),
+      ...(brand          && { brand }),
+      ...(minPrice       && { minPrice }),
+      ...(maxPrice       && { maxPrice }),
+    });
+
+    axios
+      .get('http://192.168.0.106:9090/api/v0/products', { params })
+      .then(({ data }) => {
+        setProducts(data.products || []);
+        setTotal(data.totalProducts || 0);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [page, debouncedSearch, category, brand, minPrice, maxPrice]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  /* ---------- change helpers ---------- */
+  const handlePageChange = (_, value) =>
+    setSearchParams({ ...paramsToObject(searchParams), page: value });
+
+  const handleFilterChange = (key, value) => {
+    const newParams = { ...paramsToObject(searchParams), [key]: value, page: 1 };
+    if (!value && value !== 0) delete newParams[key];
+    setSearchParams(newParams);
+  };
+
+  /* ---------- render ---------- */
+  return (
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Filter bar */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+        <TextField
+          label="Search"
+          variant="outlined"
+          size="small"
+          value={search}
+          onChange={(e) => handleFilterChange('search', e.target.value)}
+          sx={{ minWidth: 220 }}
+        />
+
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Brand</InputLabel>
+          <Select
+            value={brand}
+            label="Brand"
+            onChange={(e) => handleFilterChange('brand', e.target.value)}
+          >
+            <MenuItem value="">All</MenuItem>
+            {['dell', 'apple', 'samsung', 'xiaomi', 'sony'].map((b) => (
+              <MenuItem key={b} value={b}>{b}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Category</InputLabel>
+          <Select
+            value={category}
+            label="Category"
+            onChange={(e) => handleFilterChange('category', e.target.value)}
+          >
+            <MenuItem value="">All</MenuItem>
+            {['mobile', 'laptop', 'tablet', 'accessory'].map((c) => (
+              <MenuItem key={c} value={c}>{c}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <Box sx={{ minWidth: 180 }}>
+          <Typography variant="caption">Price Range ($)</Typography>
+          <Slider
+            value={[minPrice ? Number(minPrice) : 0, maxPrice ? Number(maxPrice) : 2000]}
+            onChange={(_, val) => {
+              const [min, max] = val;
+              handleFilterChange('minPrice', min || '');
+              handleFilterChange('maxPrice', max === 2000 ? '' : max);
+            }}
+            valueLabelDisplay="auto"
+            min={0}
+            max={2000}
+            step={50}
+          />
+        </Box>
+      </Box>
+
+      {/* Active filter chips */}
+      <Box sx={{ mb: 2 }}>
+        {search && (
+          <Chip label={`Search: ${search}`} onDelete={() => handleFilterChange('search', '')} sx={{ mr: 1 }} />
+        )}
+        {brand && (
+          <Chip label={`Brand: ${brand}`} onDelete={() => handleFilterChange('brand', '')} sx={{ mr: 1 }} />
+        )}
+        {category && (
+          <Chip label={`Category: ${category}`} onDelete={() => handleFilterChange('category', '')} sx={{ mr: 1 }} />
+        )}
+        {(minPrice || maxPrice) && (
+          <Chip
+            label={`Price: ${minPrice || 0} - ${maxPrice || '∞'}`}
+            onDelete={() => { handleFilterChange('minPrice', ''); handleFilterChange('maxPrice', ''); }}
+          />
+        )}
+      </Box>
+
+      {/* Products grid */}
+      <Typography variant="h5" gutterBottom>
+        Products ({totalProducts})
+      </Typography>
+
+      {loading ? (
+        <Grid container spacing={3}>
+          {Array.from({ length: PAGE_SIZE }).map((_, i) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={i}>
+              <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 2 }} />
+            </Grid>
+          ))}
+        </Grid>
+      ) : products.length === 0 ? (
+        <Typography>No products found.</Typography>
+      ) : (
+        <Grid container spacing={3}>
+          {products.map((p) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={p._id}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardMedia
+                  component="img"
+                  height="200"
+                  // image={p.medias?.[0] || '/placeholder.svg'}
+                  image={p.medias?.[0] 
+  ? `http://localhost:9090/${p.medias[0]}` 
+  : '/placeholder.svg'}
+                  alt={p.productName}
+                />
+                {console.log(p.medias)}
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Typography variant="h6" noWrap>
+                    {p.productName}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {p.brand} • {p.category}
+                  </Typography>
+                  <Typography variant="h6" color="primary" sx={{ mt: 1 }}>
+                    Rs {p.price}
+                  </Typography>
+                </CardContent>
+                <CardActions>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    fullWidth
+                    component={Link}
+                    to={`/product/${p._id}`}
+                  >
+                    View Details
+                  </Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {/* Pagination */}
+      {totalProducts > PAGE_SIZE && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <Pagination
+            count={Math.ceil(totalProducts / PAGE_SIZE)}
+            page={page}
+            onChange={handlePageChange}
+            color="primary"
+          />
+        </Box>
+      )}
+    </Container>
+  );
+};
+
+export default HomePage;
