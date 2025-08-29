@@ -114,7 +114,7 @@ const HomePage = () => {
           sx={{ minWidth: 220 }}
         />
 
-        <FormControl size="small" sx={{ minWidth: 150 }}>
+        {/* <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Brand</InputLabel>
           <Select
             value={brand}
@@ -126,9 +126,9 @@ const HomePage = () => {
               <MenuItem key={b} value={b}>{b}</MenuItem>
             ))}
           </Select>
-        </FormControl>
+        </FormControl> */}
 
-        <FormControl size="small" sx={{ minWidth: 150 }}>
+        {/* <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Category</InputLabel>
           <Select
             value={category}
@@ -140,9 +140,9 @@ const HomePage = () => {
               <MenuItem key={c} value={c}>{c}</MenuItem>
             ))}
           </Select>
-        </FormControl>
+        </FormControl> */}
 
-        <Box sx={{ minWidth: 180 }}>
+        {/* <Box sx={{ minWidth: 180 }}>
           <Typography variant="caption">Price Range ($)</Typography>
           <Slider
             value={[minPrice ? Number(minPrice) : 0, maxPrice ? Number(maxPrice) : 2000]}
@@ -156,7 +156,7 @@ const HomePage = () => {
             max={2000}
             step={50}
           />
-        </Box>
+        </Box> */}
       </Box>
 
       {/* Active filter chips */}
