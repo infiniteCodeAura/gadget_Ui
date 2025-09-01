@@ -23,6 +23,7 @@ import {
   ListItemIcon,
   ListItemText,
   Skeleton,
+  Avatar,
 } from "@mui/material";
 import {
   ShoppingCart,
@@ -36,17 +37,19 @@ import {
   Security,
   Replay,
   NavigateNext,
+  Send,
 } from "@mui/icons-material";
 import { useCart } from "../context/CartContext.jsx";
 
-const BASE_URL = "http://localhost:9090";
+const BASE_URL    = "http://localhost:9090";
+const ORDER_BASE_URL = "http://192.168.0.106:9090";
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
 
-  /* ---------- local state ---------- */
+  /* ---------- product ---------- */
   const [product, setProduct]           = useState(null);
   const [loading, setLoading]           = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -54,59 +57,138 @@ const ProductDetail = () => {
   const [isFavorite, setIsFavorite]     = useState(false);
   const [addedToCart, setAddedToCart]   = useState(false);
 
-  /* ---------- fetch ---------- */
+  /* ---------- comments / replies ---------- */
+  const [comments, setComments]         = useState([]);
+  const [newComment, setNewComment]     = useState("");
+  const [replyText, setReplyText]       = useState({});
+  const [replyingTo, setReplyingTo]     = useState(null);
+
+  /* ---------- token verification ---------- */
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please login first");
+      navigate("/login");
+      return;
+    }
+    axios
+      .get("http://192.168.0.106:9090/api/v1/user/profile/", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .catch(() => {
+        alert("Session expired. Please login again.");
+        navigate("/login");
+      });
+  }, [id, navigate]);
+
+  /* ---------- fetch product ---------- */
   useEffect(() => {
     setLoading(true);
     axios
       .get(`${BASE_URL}/api/v0/product/view/${id}`)
-      .then(({ data }) => {
-        setProduct(data.data);
-        setSelectedImage(0);
-      })
+      .then(({ data }) => setProduct(data.data))
       .catch(() => setProduct(null))
       .finally(() => setLoading(false));
   }, [id]);
 
-  /* ---------- image list ---------- */
-  const images = useMemo(() => {
-    if (!product) return [];
+  /* ---------- fetch comments ---------- */
+  const fetchComments = () =>
+    axios
+      .get(`${BASE_URL}/api/v3/product/${id}/comment`)
+      .then(({ data }) => setComments(data.comments || []))
+      .catch(() => setComments([]));
 
-    // 1) Array of filenames
-    if (Array.isArray(product.images) && product.images.length) {
-      return product.images.map((img) =>
-        img.startsWith("http") ? img : `${BASE_URL}/${img}`
-      );
-    }
-
-    // 2) Single comma-separated string
-    if (typeof product.images === "string" && product.images.trim()) {
-      return product.images.split(",").map((img) =>
-        img.trim().startsWith("http") ? img.trim() : `${BASE_URL}/${img.trim()}`
-      );
-    }
-
-    // 3) medias field fallback (same rules)
-    if (Array.isArray(product.medias) && product.medias.length) {
-      return product.medias.map((m) =>
-        m.startsWith("http") ? m : `${BASE_URL}/${m}`
-      );
-    }
-
-    // 4) placeholder
-    return ["/placeholder.svg"];
+  useEffect(() => {
+    if (product) fetchComments();
   }, [product]);
 
-  /* ---------- helpers ---------- */
-  const handleAddToCart = () => {
+  /* ---------- images ---------- */
+  const images = useMemo(() => {
+    if (!product) return ["/placeholder.svg"];
+    const srcs = product.images || product.medias || [];
+    if (!srcs.length) return ["/placeholder.svg"];
+    return srcs.map((img) =>
+      String(img).startsWith("http") ? img : `${BASE_URL}/${img}`
+    );
+  }, [product]);
+
+  /* ---------- cart helpers ---------- */
+  const handleAddToCart = async () => {
     if (!product) return;
-    addToCart(product, quantity);
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please login first");
+      navigate("/login");
+      return;
+    }
+
+    await axios.post(
+      `${ORDER_BASE_URL}/api/v3/product/add/cart/${product._id}`,
+      { quantity },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 3000);
+  } catch (err) {
+    console.error("Add to cart error:", err);
+    alert("Failed to add to cart");
+  }
+  };
+
+
+
+  const handlePlaceOrder = async () => {
+      const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please login first");
+      navigate("/login");
+      return;
+    }
+    if (!product) return;
+    try {
+      await axios.post(
+        `${ORDER_BASE_URL}/api/v3/order/product/${product._id}`,
+        { quantity }, {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+      );
+      alert("Order placed successfully!");
+    } catch {}
   };
 
   const handleQuantityChange = (change) => {
     const newQuantity = quantity + change;
     if (newQuantity >= 1 && newQuantity <= 10) setQuantity(newQuantity);
+  };
+
+  /* ---------- comment helpers ---------- */
+  const postComment = async () => {
+    if (!newComment.trim()) return;
+    try {
+      await axios.post(`${BASE_URL}/api/v3/product/${id}/comment`, {
+        comment: newComment,
+      });
+      setNewComment("");
+      fetchComments();
+    } catch {}
+  };
+
+  const postReply = async (commentId) => {
+    const text = replyText[commentId]?.trim();
+    if (!text) return;
+    try {
+      await axios.post(
+        `${BASE_URL}/api/v3/product/comment/${commentId}/reply`,
+        { replyComment: text }
+      );
+      setReplyText({ ...replyText, [commentId]: "" });
+      setReplyingTo(null);
+      fetchComments();
+    } catch {}
   };
 
   /* ---------- loading & 404 ---------- */
@@ -119,7 +201,6 @@ const ProductDetail = () => {
       </Container>
     );
   }
-
   if (!product) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -128,10 +209,11 @@ const ProductDetail = () => {
     );
   }
 
-  /* ---------- derived data ---------- */
   const discount =
     product.originalPrice && product.price < product.originalPrice
-      ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+      ? Math.round(
+          ((product.originalPrice - product.price) / product.originalPrice) * 100
+        )
       : 0;
 
   /* ---------- render ---------- */
@@ -162,15 +244,9 @@ const ProductDetail = () => {
               component="img"
               src={images[selectedImage]}
               alt={product.productName}
-              sx={{
-                width: "100%",
-                height: 400,
-                objectFit: "contain",
-                borderRadius: 1,
-              }}
+              sx={{ width: "100%", height: 400, objectFit: "contain", borderRadius: 1 }}
             />
           </Paper>
-
           {images.length > 1 && (
             <Box sx={{ display: "flex", gap: 1, overflowX: "auto" }}>
               {images.map((img, idx) => (
@@ -209,13 +285,13 @@ const ProductDetail = () => {
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
             <Rating value={product.rating || 4.5} precision={0.1} readOnly />
             <Typography variant="body2" color="text.secondary">
-              ( {product.reviews || 0} reviews )
+              ({product.reviews || 0} reviews)
             </Typography>
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
             <Typography variant="h4" color="primary" sx={{ fontWeight: "bold" }}>
-              Rs{product.price}
+              Rs {product.price}
             </Typography>
             {product.originalPrice && (
               <>
@@ -224,7 +300,7 @@ const ProductDetail = () => {
                   color="text.secondary"
                   sx={{ textDecoration: "line-through" }}
                 >
-                  ${product.originalPrice}
+                  Rs {product.originalPrice}
                 </Typography>
                 <Chip label={`Save ${discount}%`} color="secondary" size="small" />
               </>
@@ -242,7 +318,7 @@ const ProductDetail = () => {
             <Typography variant="h6" gutterBottom>
               Quantity
             </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <IconButton onClick={() => handleQuantityChange(-1)} disabled={quantity <= 1}>
                 <Remove />
               </IconButton>
@@ -260,7 +336,7 @@ const ProductDetail = () => {
               </IconButton>
             </Box>
 
-            <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+            <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
               <Button
                 variant="contained"
                 size="large"
@@ -270,6 +346,16 @@ const ProductDetail = () => {
                 sx={{ flex: 1 }}
               >
                 {product.quantity > 0 ? "Add to Cart" : "Out of Stock"}
+              </Button>
+              <Button
+                variant="contained"
+                color="success"
+                size="large"
+                onClick={handlePlaceOrder}
+                disabled={product.quantity <= 0}
+                sx={{ flex: 1 }}
+              >
+                Place Order
               </Button>
               <IconButton
                 onClick={() => setIsFavorite(!isFavorite)}
@@ -308,6 +394,91 @@ const ProductDetail = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* ---------- COMMENTS SECTION ---------- */}
+      <Box sx={{ mt: 6 }}>
+        <Typography variant="h5" gutterBottom>
+          Customer Questions & Answers
+        </Typography>
+
+        {/* Add comment */}
+        <Box sx={{ display: "flex", gap: 1, mb: 3 }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Ask a question or leave a comment..."
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && postComment()}
+          />
+          <Button variant="contained" onClick={postComment}>
+            <Send />
+          </Button>
+        </Box>
+
+        {/* Comments list */}
+        {comments.map((c) => (
+          <Paper key={c._id} sx={{ p: 2, mb: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+              <Avatar sx={{ width: 32, height: 32, mr: 1 }} />
+              <Typography variant="subtitle2" fontWeight="bold">
+                {c.user?.name || "Anonymous"}
+              </Typography>
+            </Box>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              {c.comment}
+            </Typography>
+
+            {/* Replies */}
+            {c.replies?.map((r) => (
+              <Box key={r._id} sx={{ pl: 4, mt: 1, borderLeft: 2, borderColor: "divider" }}>
+                <Box sx={{ display: "flex", alignItems: "center", mb: 0.5 }}>
+                  <Avatar sx={{ width: 24, height: 24, mr: 1 }} />
+                  <Typography variant="caption" fontWeight="bold">
+                    {r.user?.name || "Anonymous"}
+                  </Typography>
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  {r.replyComment}
+                </Typography>
+              </Box>
+            ))}
+
+            {/* Reply form */}
+            {replyingTo === c._id ? (
+              <Box sx={{ display: "flex", gap: 1, mt: 1, pl: 4 }}>
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder="Write a reply..."
+                  value={replyText[c._id] || ""}
+                  onChange={(e) =>
+                    setReplyText({ ...replyText, [c._id]: e.target.value })
+                  }
+                  onKeyPress={(e) => e.key === "Enter" && postReply(c._id)}
+                />
+                <Button size="small" onClick={() => postReply(c._id)}>
+                  Reply
+                </Button>
+                <Button size="small" onClick={() => setReplyingTo(null)}>
+                  Cancel
+                </Button>
+              </Box>
+            ) : (
+              <Button
+                size="small"
+                sx={{ mt: 1 }}
+                onClick={() => {
+                  setReplyingTo(c._id);
+                  setReplyText({ ...replyText, [c._id]: "" });
+                }}
+              >
+                Reply
+              </Button>
+            )}
+          </Paper>
+        ))}
+      </Box>
     </Container>
   );
 };

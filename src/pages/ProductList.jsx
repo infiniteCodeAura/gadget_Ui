@@ -1,4 +1,4 @@
-/* HomePage.jsx – product listing with search, brand, price range, pagination */
+/* HomePage.jsx */
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import axios from 'axios';
@@ -21,18 +21,23 @@ import {
   Skeleton,
   Chip,
   Slider,
+  Alert,
 } from '@mui/material';
 
+/* -------------------------------------------------- */
 const PAGE_SIZE = 20;
 
-/* ---------- helper ---------- */
+/* Put your back-end base URL here.  */
+const API_BASE = 'http://localhost:9090';   
+
+/* -------------------------------------------------- */
 const paramsToObject = (searchParams) => {
   const obj = {};
-  searchParams.forEach((val, key) => { obj[key] = val; });
+  searchParams.forEach((val, key) => (obj[key] = val));
   return obj;
 };
 
-/* ---------- debounce hook ---------- */
+/* -------------------------------------------------- */
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -42,34 +47,34 @@ function useDebounce(value, delay = 400) {
   return debounced;
 }
 
-/* ---------- main component ---------- */
+/* -------------------------------------------------- */
 const HomePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  /* states */
-  const [products, setProducts]      = useState([]);
-  const [totalProducts, setTotal]    = useState(0);
-  const [loading, setLoading]        = useState(true);
-
-  /* query values */
+  /* ------------- query values ------------- */
   const page     = Number(searchParams.get('page')) || 1;
-  const search   = searchParams.get('search') || '';
+  const search   = searchParams.get('search')   || '';
   const category = searchParams.get('category') || '';
-  const brand    = searchParams.get('brand') || '';
+  const brand    = searchParams.get('brand')    || '';
   const minPrice = searchParams.get('minPrice') || '';
   const maxPrice = searchParams.get('maxPrice') || '';
 
-  /* debounced search for smoother UX */
+  /* ------------- local state ------------- */
+  const [products, setProducts]   = useState([]);
+  const [totalProducts, setTotal] = useState(0);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+
   const debouncedSearch = useDebounce(search);
 
-  /* ---------- fetch products ---------- */
+  /* ------------- fetch ------------- */
   const fetchProducts = useCallback(() => {
     setLoading(true);
+    setError(null);
 
     const params = new URLSearchParams({
       page,
-      limit: PAGE_SIZE,
-      ...(debouncedSearch && { search: debouncedSearch }),
+      ...(debouncedSearch && { name: debouncedSearch }),
       ...(category       && { category }),
       ...(brand          && { brand }),
       ...(minPrice       && { minPrice }),
@@ -77,12 +82,15 @@ const HomePage = () => {
     });
 
     axios
-      .get('http://192.168.0.106:9090/api/v0/products', { params })
+      .get(`${API_BASE}/api/v0/product/search`, { params }) // <- no trailing space
       .then(({ data }) => {
-        setProducts(data.products || []);
-        setTotal(data.totalProducts || 0);
+        setProducts(data.products || data.data || []);
+        setTotal(data.totalProducts || data.total || 0);
       })
-      .catch(console.error)
+      .catch((e) => {
+        console.error(e);
+        setError('Product not found or some error occurred.');
+      })
       .finally(() => setLoading(false));
   }, [page, debouncedSearch, category, brand, minPrice, maxPrice]);
 
@@ -90,7 +98,7 @@ const HomePage = () => {
     fetchProducts();
   }, [fetchProducts]);
 
-  /* ---------- change helpers ---------- */
+  /* ------------- change helpers ------------- */
   const handlePageChange = (_, value) =>
     setSearchParams({ ...paramsToObject(searchParams), page: value });
 
@@ -100,10 +108,10 @@ const HomePage = () => {
     setSearchParams(newParams);
   };
 
-  /* ---------- render ---------- */
+  /* ------------- render ------------- */
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Filter bar */}
+      {/* -------- filter bar -------- */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <TextField
           label="Search"
@@ -114,7 +122,7 @@ const HomePage = () => {
           sx={{ minWidth: 220 }}
         />
 
-        {/* <FormControl size="small" sx={{ minWidth: 150 }}>
+        <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Brand</InputLabel>
           <Select
             value={brand}
@@ -126,9 +134,9 @@ const HomePage = () => {
               <MenuItem key={b} value={b}>{b}</MenuItem>
             ))}
           </Select>
-        </FormControl> */}
+        </FormControl>
 
-        {/* <FormControl size="small" sx={{ minWidth: 150 }}>
+        <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Category</InputLabel>
           <Select
             value={category}
@@ -140,26 +148,26 @@ const HomePage = () => {
               <MenuItem key={c} value={c}>{c}</MenuItem>
             ))}
           </Select>
-        </FormControl> */}
+        </FormControl>
 
-        {/* <Box sx={{ minWidth: 180 }}>
-          <Typography variant="caption">Price Range ($)</Typography>
+        <Box sx={{ minWidth: 180 }}>
+          <Typography variant="caption">Price Range (Rs)</Typography>
           <Slider
-            value={[minPrice ? Number(minPrice) : 0, maxPrice ? Number(maxPrice) : 2000]}
+            value={[minPrice ? Number(minPrice) : 0, maxPrice ? Number(maxPrice) : 20000]}
             onChange={(_, val) => {
               const [min, max] = val;
               handleFilterChange('minPrice', min || '');
-              handleFilterChange('maxPrice', max === 2000 ? '' : max);
+              handleFilterChange('maxPrice', max === 20000 ? '' : max);
             }}
             valueLabelDisplay="auto"
             min={0}
-            max={2000}
-            step={50}
+            max={20000}
+            step={500}
           />
-        </Box> */}
+        </Box>
       </Box>
 
-      {/* Active filter chips */}
+      {/* -------- active filter chips -------- */}
       <Box sx={{ mb: 2 }}>
         {search && (
           <Chip label={`Search: ${search}`} onDelete={() => handleFilterChange('search', '')} sx={{ mr: 1 }} />
@@ -173,12 +181,22 @@ const HomePage = () => {
         {(minPrice || maxPrice) && (
           <Chip
             label={`Price: ${minPrice || 0} - ${maxPrice || '∞'}`}
-            onDelete={() => { handleFilterChange('minPrice', ''); handleFilterChange('maxPrice', ''); }}
+            onDelete={() => {
+              handleFilterChange('minPrice', '');
+              handleFilterChange('maxPrice', '');
+            }}
           />
         )}
       </Box>
 
-      {/* Products grid */}
+      {/* -------- error -------- */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* -------- products grid -------- */}
       <Typography variant="h5" gutterBottom>
         Products ({totalProducts})
       </Typography>
@@ -201,13 +219,13 @@ const HomePage = () => {
                 <CardMedia
                   component="img"
                   height="200"
-                  // image={p.medias?.[0] || '/placeholder.svg'}
-                  image={p.medias?.[0] 
-  ? `http://localhost:9090/${p.medias[0]}` 
-  : '/placeholder.svg'}
+                  image={
+                    p.medias?.[0]
+                      ? `${API_BASE}/${p.medias[0]}`
+                      : '/placeholder.svg'
+                  }
                   alt={p.productName}
                 />
-                {console.log(p.medias)}
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Typography variant="h6" noWrap>
                     {p.productName}
@@ -236,7 +254,7 @@ const HomePage = () => {
         </Grid>
       )}
 
-      {/* Pagination */}
+      {/* -------- pagination -------- */}
       {totalProducts > PAGE_SIZE && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <Pagination
