@@ -24,6 +24,7 @@ import {
   ShoppingCartOutlined,
   ArrowBack,
   Security,
+  Image,
 } from "@mui/icons-material"
 
 const BASE_URL = "http://192.168.0.106:9090"
@@ -51,7 +52,10 @@ const Cart = () => {
           price: i.price,
           quantity: i.quantity,
           date: i.date,
+          
         })) || []
+
+console.log(items);
 
       setCartItems(items)
       setCartSummary({
@@ -75,7 +79,7 @@ const Cart = () => {
     if (newQty < 1) return handleRemove(itemId)
     try {
       await axios.put(
-        `${BASE_URL}/user/cart/${itemId}/update`,
+        `${BASE_URL}api/v3/user/cart/${itemId}/update`,
         { quantity: newQty },
         { headers: { Authorization: `Bearer ${token}` } }
       )
@@ -87,7 +91,7 @@ const Cart = () => {
 
   const handleRemove = async (itemId) => {
     try {
-      await axios.delete(`${BASE_URL}/product/delete/cart/${itemId}`, {
+      await axios.delete(`${BASE_URL}/api/v3/product/delete/cart/${itemId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       setCartItems((prev) => prev.filter((i) => i.id !== itemId))
@@ -98,7 +102,7 @@ const Cart = () => {
 
   const handleFlush = async () => {
     try {
-      await axios.delete(`${BASE_URL}/user/cart/flush`, {
+      await axios.delete(`${BASE_URL}api/v3/user/cart/flush`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       setCartItems([])
@@ -165,15 +169,15 @@ const Cart = () => {
                   <Grid container spacing={3} alignItems="center">
                     {/* Placeholder image */}
                     <Grid item xs={12} sm={3}>
-                      <CardMedia
+                      {/* <CardMedia
                         component="img"
                         height="120"
                         image="/placeholder.svg"
                         alt="Product"
                         sx={{ objectFit: "contain", borderRadius: 1 }}
-                      />
+                      /> */}
+                      <Image fontSize="large" color="disabled" sx={{ fontSize: 80 }} />
                     </Grid>
-
                     {/* Product info */}
                     <Grid item xs={12} sm={5}>
                       <Typography variant="h6">Product ID: {item.id}</Typography>
@@ -207,7 +211,7 @@ const Cart = () => {
                     {/* Item total */}
                     <Grid item xs={12} sm={2}>
                       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
-                        <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+                        <Typography variant="" sx={{ fontWeight: "bold" }}>
                           Rs {(item.price * item.quantity).toLocaleString()}
                         </Typography>
                         <IconButton color="error" onClick={() => handleRemove(item.id)}>
