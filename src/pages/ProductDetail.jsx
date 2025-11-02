@@ -62,6 +62,12 @@ const ProductDetail = () => {
   const [newComment, setNewComment]     = useState("");
   const [replyText, setReplyText]       = useState({});
   const [replyingTo, setReplyingTo]     = useState(null);
+    /* ---------- comment list from /product/:id/list ---------- */
+    const [commentList, setCommentList] = useState([]);
+  /* ---------- reviews ---------- */
+  const [reviews, setReviews] = useState([]);
+  const [ratingValue, setRatingValue] = useState(5);
+  const [feedback, setFeedback] = useState("");
 
   /* ---------- token verification ---------- */
   useEffect(() => {
@@ -93,15 +99,80 @@ const ProductDetail = () => {
 
   /* ---------- fetch comments ---------- */
   const fetchComments = () =>
-    axios
-      .get(`${BASE_URL}/api/v3/product/${id}/comment`)
-      .then(({ data }) => setComments(data.comments || []))
-      .catch(() => setComments([]));
+    // include auth header if token present; some endpoints require authentication
+  (() => {
+      const token = localStorage.getItem("token");
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      return axios
+        .get(`${BASE_URL}/api/v3/product/${id}/comment`, config)
+        .then(({ data }) => setComments(data.comments || []))
+        .catch((err) => {
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            // token invalid or expired
+            alert("Session invalid or expired. Please login again.");
+            navigate("/login");
+            setComments([]);
+          } else {
+            console.error("fetchComments error:", err);
+            setComments([]);
+          }
+        });
+    })();
+
+  /* ---------- fetch reviews ---------- */
+  const fetchReviews = () =>
+    // include auth header if token present
+  (() => {
+      const token = localStorage.getItem("token");
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      return axios
+        .get(`${BASE_URL}/api/v3/review/product/${id}`, config)
+        .then(({ data }) => {
+          // backend may return reviews in different shapes; try common fields
+          setReviews(data.reviews || data.data || data || []);
+        })
+        .catch((err) => {
+          if (err?.response?.status === 401 || err?.response?.status === 403) {
+            alert("Session invalid or expired. Please login again.");
+            navigate("/login");
+            setReviews([]);
+          } else {
+            console.error("fetchReviews error:", err);
+            setReviews([]);
+          }
+        });
+    })();
 
   useEffect(() => {
     if (product) fetchComments();
+    if (product) fetchReviews();
+      if (product) fetchCommentList();
   }, [product]);
 
+    /* ---------- fetch comment list ---------- */
+    const fetchCommentList = () => {
+      // include auth header if token present
+      const token = localStorage.getItem("token");
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+      // NOTE: use the same /api/v3 prefix as other endpoints
+      return axios
+        .get(`${BASE_URL}/api/v3/product/${id}/list`, config)
+        .then(({ data }) => setCommentList(data.comments || data || []))
+        .catch((err) => {
+          // backend may not expose this endpoint; silently handle 404 and
+          // clear the list. Log other errors to help debugging.
+          if (err?.response?.status === 404) {
+            setCommentList([]);
+          } else if (err?.response?.status === 401 || err?.response?.status === 403) {
+            alert("Session invalid or expired. Please login again.");
+            navigate("/login");
+            setCommentList([]);
+          } else {
+            console.error("fetchCommentList error:", err);
+            setCommentList([]);
+          }
+        });
+    };
   /* ---------- images ---------- */
   const images = useMemo(() => {
     if (!product) return ["/placeholder.svg"];
@@ -169,26 +240,73 @@ const ProductDetail = () => {
   const postComment = async () => {
     if (!newComment.trim()) return;
     try {
-      await axios.post(`${BASE_URL}/api/v3/product/${id}/comment`, {
-        comment: newComment,
-      });
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("Please login first");
+        navigate("/login");
+        return;
+      }
+      await axios.post(
+        `${BASE_URL}/api/v3/product/${id}/comment`,
+        { comment: newComment },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setNewComment("");
       fetchComments();
-    } catch {}
+    } catch (err) {
+      console.error("Post comment error:", err);
+      alert(err?.response?.data?.message || "Failed to post comment");
+    }
+  };
+
+  /* ---------- review helpers ---------- */
+  const postReview = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please login to post a review");
+      navigate("/login");
+      return;
+    }
+    if (!feedback.trim()) return alert("Please enter feedback");
+    if (!ratingValue || ratingValue < 1 || ratingValue > 5) return alert("Please provide a rating between 1 and 5");
+    try {
+      await axios.post(
+        `${BASE_URL}/api/v3/review/product/${id}`,
+        { rating: ratingValue, feedback },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert("Review posted");
+      setFeedback("");
+      setRatingValue(5);
+      fetchReviews();
+    } catch (err) {
+      console.error("Post review error:", err?.response || err);
+      alert(err?.response?.data?.message || "Failed to post review");
+    }
   };
 
   const postReply = async (commentId) => {
     const text = replyText[commentId]?.trim();
     if (!text) return;
     try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("Please login first");
+        navigate("/login");
+        return;
+      }
       await axios.post(
         `${BASE_URL}/api/v3/product/comment/${commentId}/reply`,
-        { replyComment: text }
+        { replyComment: text },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setReplyText({ ...replyText, [commentId]: "" });
       setReplyingTo(null);
       fetchComments();
-    } catch {}
+    } catch (err) {
+      console.error("Post reply error:", err);
+      alert(err?.response?.data?.message || "Failed to post reply");
+    }
   };
 
   /* ---------- loading & 404 ---------- */
@@ -271,6 +389,35 @@ const ProductDetail = () => {
               ))}
             </Box>
           )}
+
+          {/* ---------- COMMENT LIST SECTION (from /product/:id/list) ---------- */}
+          <Box sx={{ mt: 6 }}>
+            <Typography variant="h5" gutterBottom>
+              Product Comment List
+            </Typography>
+            {commentList.length === 0 ? (
+              <Typography color="text.secondary">No comments found.</Typography>
+            ) : (
+              commentList.map((c, idx) => (
+                <Paper key={c._id || idx} sx={{ p: 2, mb: 2 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+                    <Avatar sx={{ width: 32, height: 32, mr: 1 }} />
+                    <Typography variant="subtitle2" fontWeight="bold">
+                      {c.user?.name || c.userName || "Anonymous"}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    {c.comment || c.text || ""}
+                  </Typography>
+                  {c.date && (
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(c.date).toLocaleDateString()}
+                    </Typography>
+                  )}
+                </Paper>
+              ))
+            )}
+          </Box>
         </Grid>
 
         {/* Details */}
@@ -394,6 +541,53 @@ const ProductDetail = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* ---------- REVIEWS SECTION ---------- */}
+      <Box sx={{ mt: 6 }}>
+        <Typography variant="h5" gutterBottom>
+          Customer Reviews
+        </Typography>
+
+        {/* Review form */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+          <Rating
+            value={ratingValue}
+            onChange={(e, v) => setRatingValue(v)}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Write your review..."
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && postReview()}
+          />
+          <Button variant="contained" onClick={postReview} startIcon={<Send />}>Post</Button>
+        </Box>
+
+        {/* Reviews list */}
+        {reviews.length === 0 ? (
+          <Typography color="text.secondary">No reviews yet.</Typography>
+        ) : (
+          reviews.map((r) => (
+            <Paper key={r._id || r.id} sx={{ p: 2, mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Avatar sx={{ width: 32, height: 32, mr: 1 }} />
+                  <Box>
+                    <Typography variant="subtitle2">{r.user?.name || r.userName || 'Anonymous'}</Typography>
+                    <Rating value={r.rating || 0} readOnly size="small" />
+                  </Box>
+                </Box>
+                <Typography variant="caption" color="text.secondary">
+                  {r.date ? new Date(r.date).toLocaleDateString() : ''}
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ mt: 1 }}>{r.feedback || r.comment || ''}</Typography>
+            </Paper>
+          ))
+        )}
+      </Box>
 
       {/* ---------- COMMENTS SECTION ---------- */}
       <Box sx={{ mt: 6 }}>

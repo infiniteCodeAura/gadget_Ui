@@ -10,12 +10,17 @@ import {
   Grid,
   Button,
   IconButton,
-  TextField,
-  Divider,
+  Card,
+  CardContent,
   CardMedia,
+  Divider,
+  Alert,
+  Snackbar,
+  CircularProgress,
   List,
   ListItem,
   ListItemText,
+  Stack,
 } from "@mui/material"
 import {
   Add,
@@ -33,40 +38,67 @@ const Cart = () => {
   const [cartItems, setCartItems] = useState([])
   const [cartSummary, setCartSummary] = useState({ totalQuantity: 0, totalPrice: 0 })
   const [loading, setLoading] = useState(true)
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" })
   const navigate = useNavigate()
   const token = localStorage.getItem("token")
 
   /* ---------- fetch cart ---------- */
   const fetchCart = async () => {
-    if (!token) return navigate("/login")
+    if (!token) {
+      return navigate("/login");
+    }
 
     try {
-      const { data } = await axios.get(`${BASE_URL}/api/v3/user/cart/list`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const response = await axios.get(`${BASE_URL}/api/v3/user/cart/list`, {
+        headers: { 
+          Authorization: `Bearer ${token}`
+        },
+      });
 
-      // Normalize response
-      const items =
-        data.item?.map((i) => ({
-          id: i.productId,
-          price: i.price,
-          quantity: i.quantity,
-          date: i.date,
-          
-        })) || []
+      // Log the response for debugging
+      console.log("Cart API Response:", response.data);
 
-console.log(items);
+      // Normalize different possible response shapes from backend.
+      // The API sometimes returns { cart: { items: [...] , totalPrice, totalQuantity } }
+      // or { item: [...], totalPrice, totalQuantity }.
+      const cartObj = response.data?.cart ?? response.data;
+      const rawItems = Array.isArray(cartObj?.items)
+        ? cartObj.items
+        : Array.isArray(cartObj?.item)
+        ? cartObj.item
+        : Array.isArray(cartObj)
+        ? cartObj
+        : [];
 
-      setCartItems(items)
-      setCartSummary({
-        totalQuantity: data.totalQuantity,
-        totalPrice: data.totalPrice,
-      })
+      if (rawItems && rawItems.length) {
+        const items = rawItems.map((item) => ({
+          id: item._id || item.productId || item.id,
+          productId: item.productId || item._id || item.id,
+          name: item.productName || item.name || "",
+          price: Number(item.price) || 0,
+          quantity: Number(item.quantity) || 0,
+          image: item.image || "",
+        }));
+
+        setCartItems(items);
+        setCartSummary({
+          totalQuantity: cartObj.totalQuantity ?? items.reduce((sum, it) => sum + it.quantity, 0),
+          totalPrice: cartObj.totalPrice ?? items.reduce((sum, it) => sum + it.price * it.quantity, 0),
+        });
+      } else {
+        setCartItems([]);
+        setCartSummary({ totalQuantity: 0, totalPrice: 0 });
+      }
     } catch (err) {
-      console.error("Fetch cart error:", err)
-      setCartItems([])
+      console.error("Fetch cart error:", {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      setCartItems([]);
+      setSnackbar({ open: true, message: err.response?.data?.message || "Failed to load cart. Please try again.", severity: "error" })
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -75,34 +107,53 @@ console.log(items);
   }, [])
 
   /* ---------- cart actions ---------- */
-  const handleQuantityChange = async (itemId, newQty) => {
-    if (newQty < 1) return handleRemove(itemId)
+  const handleQuantityChange = async (itemId, isIncrement) => {
     try {
-      await axios.put(
-        `${BASE_URL}api/v3/user/cart/${itemId}/update`,
-        { quantity: newQty },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      setCartItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, quantity: newQty } : i)))
+      console.log("Updating quantity:", { itemId, isIncrement }); // For debugging
+      const response = await axios.post(
+        `${BASE_URL}/api/v3/user/cart/${itemId}/update`,
+        { 
+          inc: isIncrement ? 1 : 0,
+          dec: isIncrement ? 0 : 1
+        },
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } 
+        }
+      );
+      console.log("Update response:", response.data); // For debugging
+      await fetchCart(); // Refresh cart after update
     } catch (err) {
-      console.error("Quantity update error:", err)
+      console.error("Update quantity error:", err.response?.data || err);
+      setSnackbar({ open: true, message: err.response?.data?.message || "Failed to update quantity", severity: "error" })
     }
-  }
+  };
 
   const handleRemove = async (itemId) => {
     try {
-      await axios.delete(`${BASE_URL}/api/v3/product/delete/cart/${itemId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      setCartItems((prev) => prev.filter((i) => i.id !== itemId))
+      console.log("Removing item:", itemId); // For debugging
+      await axios.post(
+        `${BASE_URL}/api/v3/product/delete/cart/${itemId}`,
+        {},
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      await fetchCart(); // Refresh cart after deletion
     } catch (err) {
-      console.error("Remove item error:", err)
+      console.error("Remove item error:", err.response?.data || err);
+      setSnackbar({ open: true, message: err.response?.data?.message || "Failed to remove item", severity: "error" })
     }
-  }
+  };
 
   const handleFlush = async () => {
     try {
-      await axios.delete(`${BASE_URL}api/v3/user/cart/flush`, {
+      await axios.delete(`${BASE_URL}/api/v3/user/cart/flush`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       setCartItems([])
@@ -123,34 +174,53 @@ console.log(items);
           { headers: { Authorization: `Bearer ${token}` } }
         )
       }
-      alert("Order placed via Cash on Delivery!")
+      setSnackbar({ open: true, message: "Order placed via Cash on Delivery!", severity: "success" })
       handleFlush()
     } catch (err) {
       console.error("COD error:", err)
     }
   }
 
-  const handleOnline = () => alert("Online payment – update soon!")
+  const handleOnline = () => setSnackbar({ open: true, message: "Online payment – update soon!", severity: "info" })
 
   /* ---------- loading & empty ---------- */
-  if (loading) return <Typography sx={{ p: 4 }}>Loading cart…</Typography>
-
-  if (!cartItems.length) {
+  if (loading) {
     return (
       <Container maxWidth="md" sx={{ py: 8, textAlign: "center" }}>
-        <ShoppingCartOutlined sx={{ fontSize: 80, color: "text.secondary", mb: 2 }} />
-        <Typography variant="h4" gutterBottom>
-          Your cart is empty
-        </Typography>
-        <Button variant="contained" component={Link} to="/products" startIcon={<ArrowBack />}>
-          Continue Shopping
-        </Button>
+        <CircularProgress size={40} />
+        <Typography sx={{ mt: 2 }}>Loading your cart...</Typography>
+      </Container>
+    );
+  }
+
+  if (!cartItems || !cartItems.length) {
+    return (
+      <Container maxWidth="md" sx={{ py: 8, textAlign: "center" }}>
+        <Paper elevation={1} sx={{ p: 4 }}>
+          <ShoppingCartOutlined sx={{ fontSize: 80, color: "text.secondary", mb: 2 }} />
+          <Typography variant="h4" gutterBottom>
+            Your cart is empty
+          </Typography>
+          <Typography color="text.secondary" paragraph>
+            Looks like you haven't added any items yet.
+          </Typography>
+          <Button 
+            variant="contained" 
+            component={Link} 
+            to="/products" 
+            startIcon={<ArrowBack />}
+            size="large"
+          >
+            Browse Products
+          </Button>
+        </Paper>
       </Container>
     )
   }
 
   /* ---------- render ---------- */
   return (
+    <>
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Typography variant="h3" gutterBottom>
         Shopping Cart
@@ -188,21 +258,30 @@ console.log(items);
 
                     {/* Quantity controls */}
                     <Grid item xs={12} sm={2}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <IconButton size="small" onClick={() => handleQuantityChange(item.id, item.quantity - 1)}>
-                          <Remove />&nbsp; 
+                      <Box sx={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: 1,
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                        p: 1
+                      }}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleQuantityChange(item.id, false)}
+                          disabled={item.quantity <= 1}
+                        >
+                          <Remove />
                         </IconButton>
-                        <TextField sx={{ width: 70 }}
-                          value={item.quantity}
-                          type="number"
-                          onChange={(e) => {
-                            const val = Number.parseInt(e.target.value)
-                            if (val >= 1) handleQuantityChange(item.id, val)
-                          }}
-                          inputProps={{ min: 1, style: { textAlign: "center", width: 50 } }}
-                          size="large"
-                        /> {item.quantity} 
-                        <IconButton size="small" onClick={() => handleQuantityChange(item.id, item.quantity + 1)}>
+                        <Typography sx={{ minWidth: 40, textAlign: 'center' }}>
+                          {item.quantity}
+                        </Typography>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleQuantityChange(item.id, true)}
+                          disabled={item.quantity >= 6}
+                        >
                           <Add />
                         </IconButton>
                       </Box>
@@ -272,6 +351,21 @@ console.log(items);
         </Grid>
       </Grid>
     </Container>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert
+            onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+            severity={snackbar.severity}
+            sx={{ width: "100%" }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+    </>
   )
 }
 
