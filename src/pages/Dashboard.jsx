@@ -12,8 +12,8 @@ import {
 import { Add, Edit, Visibility, Delete, Upload, Search } from '@mui/icons-material';
 
 /* ---------- Axios instances ---------- */
-const v1Api = axios.create({ baseURL: 'http://192.168.0.106:9090/api/v1', withCredentials: true });
-const v2Api = axios.create({ baseURL: 'http://192.168.0.106:9090/api/v2', withCredentials: true });
+const v1Api = axios.create({ baseURL: 'http://localhost:9090/api/v1', withCredentials: true });
+const v2Api = axios.create({ baseURL: 'http://localhost:9090/api/v2', withCredentials: true });
 
 const token = localStorage.getItem('token');
 if (token) {
@@ -237,7 +237,7 @@ console.log(handleFileUpload());
           <DialogTitle>Product Details</DialogTitle>
           <DialogContent>
           
-            <img src={`http://192.168.0.106:9090/${selected.medias?.[0]}` || '/placeholder.svg'} alt={selected.productName} style={{ width: '100%', borderRadius: 8 }} />
+            <img src={`http://localhost:9090/${selected.medias?.[0]}` || '/placeholder.svg'} alt={selected.productName} style={{ width: '100%', borderRadius: 8 }} />
             <Box sx={{ mt: 2 }}>
               <Typography variant="h5">{selected.productName}</Typography>
               <Typography>Brand: {selected.brand}</Typography>

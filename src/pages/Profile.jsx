@@ -80,7 +80,7 @@ if (!token) {
 
   /* avatar */
   const avatarRef = useRef(null);
-  const baseUrl = "http://192.168.0.106:9090/";
+  const baseUrl = "http://localhost:9090/";
 
 
   /* per-field edit states */

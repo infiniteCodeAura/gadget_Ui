@@ -42,7 +42,7 @@ import {
 import { useCart } from "../context/CartContext.jsx";
 
 const BASE_URL    = "http://localhost:9090";
-const ORDER_BASE_URL = "http://192.168.0.106:9090";
+const ORDER_BASE_URL = "http://localhost:9090";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -72,7 +72,7 @@ const ProductDetail = () => {
       return;
     }
     axios
-      .get("http://192.168.0.106:9090/api/v1/user/profile/", {
+      .get("http://localhost:9090/api/v1/user/profile/", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .catch(() => {

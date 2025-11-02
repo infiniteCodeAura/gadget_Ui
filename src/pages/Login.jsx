@@ -55,7 +55,7 @@ const Login = () => {
     setIsLoading(true)
 
     try {
-      const res = await fetch("http://192.168.0.106:9090/api/v1/user/login", {
+      const res = await fetch("http://localhost:9090/api/v1/user/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -27,7 +27,7 @@ import {
   Image,
 } from "@mui/icons-material"
 
-const BASE_URL = "http://192.168.0.106:9090"
+const BASE_URL = "http://localhost:9090"
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState([])
