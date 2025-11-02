@@ -42,7 +42,7 @@ const Login = () => {
     if (!formData.email) {
       newErrors.email = "Email is required"
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = "Email is invalid"
+      newErrors.email = "Email is invalid" 
     }
     if (!formData.password) newErrors.password = "Password is required"
     setErrors(newErrors)

@@ -40,6 +40,9 @@ import {
 const api = axios.create({
   baseURL: '/api/v1',
   withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
 api.interceptors.request.use((config) => {
@@ -75,7 +78,7 @@ if (!token) {
 
   /* addresses */
   const [addrOpen, setAddrOpen] = useState(false);
-  const [addrForm, setAddrForm] = useState({ label: '', street: '', city: '', state: '', zip: '' });
+  const [addrForm, setAddrForm] = useState({ phone: '', address: '', address1: '', city: '' });
   const [addresses, setAddresses] = useState([]);
 
   /* avatar */
@@ -210,12 +213,29 @@ if (!token) {
   /* address */
   const handleAddressAdd = async () => {
     try {
-      await api.post('/buyer/address', addrForm);
-      setSnack({ open: true, msg: 'Address added', severity: 'success' });
+      // Validate required fields
+      if (!addrForm.phone || !addrForm.address || !addrForm.city) {
+        setSnack({ open: true, msg: 'Please fill all required fields', severity: 'error' });
+        return;
+      }
+
+      // Make sure phone number is valid
+      if (!/^\d{10}$/.test(addrForm.phone.replace(/[-\s]/g, ''))) {
+        setSnack({ open: true, msg: 'Please enter a valid 10-digit phone number', severity: 'error' });
+        return;
+      }
+
+      await api.post('/api/v1/buyer/address', addrForm);
+      setSnack({ open: true, msg: 'Delivery location updated', severity: 'success' });
       setAddrOpen(false);
       fetchProfile();
     } catch (err) {
-      setSnack({ open: true, msg: err.response?.data?.message || 'Add failed', severity: 'error' });
+      console.error('Address submission error:', err);
+      setSnack({ 
+        open: true, 
+        msg: err.response?.data?.message || 'Failed to add address. Please try again.', 
+        severity: 'error' 
+      });
     }
   };
 
@@ -401,9 +421,23 @@ if (!token) {
               </Box>
               {addresses.length ? (
                 addresses.map((a) => (
-                  <Box key={a._id} mb={1}>
-                    <Typography variant="body2">
-                      {a.label} — {a.street}, {a.city}, {a.zip}
+                  <Box key={a._id} mb={2} p={2} border={1} borderColor="divider" borderRadius={1}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      {a.fullName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      📞 {a.phone}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      📍 {a.address}
+                    </Typography>
+                    {a.address1 && (
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        🏠 {a.address1}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      🌆 {a.city}
                     </Typography>
                   </Box>
                 ))
@@ -537,15 +571,47 @@ if (!token) {
 
       {/* Add Address */}
       <Dialog open={addrOpen} onClose={() => setAddrOpen(false)}>
-        <DialogTitle>Add Address</DialogTitle>
+        <DialogTitle>Add Delivery Address</DialogTitle>
         <DialogContent>
-          {['label', 'street', 'city', 'state', 'zip'].map((f) => (
-            <TextField key={f} margin="dense" label={f.charAt(0).toUpperCase() + f.slice(1)} fullWidth value={addrForm[f]} onChange={(e) => setAddrForm({ ...addrForm, [f]: e.target.value })} />
-          ))}
+          <TextField
+            margin="dense"
+            label="Phone Number"
+            fullWidth
+            value={addrForm.phone}
+            onChange={(e) => setAddrForm({ ...addrForm, phone: e.target.value })}
+            type="tel"
+          />
+          <TextField
+            margin="dense"
+            label="Address"
+            fullWidth
+            value={addrForm.address}
+            onChange={(e) => setAddrForm({ ...addrForm, address: e.target.value })}
+            multiline
+            rows={2}
+            placeholder="Enter your main address"
+          />
+          <TextField
+            margin="dense"
+            label="Alternative Address"
+            fullWidth
+            value={addrForm.address1}
+            onChange={(e) => setAddrForm({ ...addrForm, address1: e.target.value })}
+            multiline
+            rows={2}
+            placeholder="Enter alternative address (optional)"
+          />
+          <TextField
+            margin="dense"
+            label="City"
+            fullWidth
+            value={addrForm.city}
+            onChange={(e) => setAddrForm({ ...addrForm, city: e.target.value })}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddrOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddressAdd}>Save</Button>
+          <Button onClick={handleAddressAdd} variant="contained">Add Address</Button>
         </DialogActions>
       </Dialog>
 
