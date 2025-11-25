@@ -75,21 +75,43 @@ const Contact = () => {
 
     setIsSubmitting(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false)
-      setSubmitSuccess(true)
-      setFormData({
-        name: "",
-        email: "",
-        subject: "",
-        message: "",
-        category: "general",
-      })
+    try {
+      const response = await fetch('http://localhost:9090/api/v0/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: formData.message,
+        }),
+      });
 
-      // Hide success message after 5 seconds
-      setTimeout(() => setSubmitSuccess(false), 5000)
-    }, 1500)
+      const data = await response.json();
+
+      if (response.ok) {
+        setIsSubmitting(false)
+        setSubmitSuccess(true)
+        setFormData({
+          name: "",
+          email: "",
+          subject: "",
+          message: "",
+          category: "general",
+        })
+
+        // Hide success message after 5 seconds
+        setTimeout(() => setSubmitSuccess(false), 5000)
+      } else {
+        throw new Error(data.message || 'Failed to send message');
+      }
+    } catch (error) {
+      console.error('Contact form error:', error);
+      setIsSubmitting(false);
+      setErrors({ submit: error.message || 'Failed to send message. Please try again later.' });
+    }
   }
 
   const contactInfo = [
@@ -147,6 +169,12 @@ const Contact = () => {
           Have questions about our products or need support? We're here to help!
         </Typography>
       </Box>
+
+      {errors.submit && (
+        <Alert severity="error" sx={{ mb: 4 }}>
+          {errors.submit}
+        </Alert>
+      )}
 
       {submitSuccess && (
         <Alert severity="success" sx={{ mb: 4 }}>

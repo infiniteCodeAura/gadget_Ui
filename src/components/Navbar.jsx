@@ -49,6 +49,11 @@ const Navbar = () => {
   const token = localStorage.getItem("token")
   const isLoggedIn = !!token
 
+  // Hide navbar on dashboard
+  if (location.pathname === "/dashboard") {
+    return null;
+  }
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
   }

@@ -1,18 +1,40 @@
 "use client"
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { Container, Typography, Button, Box, Grid, Card, Paper, useTheme } from "@mui/material"
+import { Container, Typography, Button, Box, Grid, Card, Paper, useTheme, CircularProgress } from "@mui/material"
 import { ArrowForward, TrendingUp, LocalShipping, Security, Support } from "@mui/icons-material"
-import { products, categories } from "../data/products.js"
+import axios from "axios"
 import ProductCard from "../components/ProductCard.jsx"
+import { categories } from "../data/products.js" // Keep categories for now or fetch them if API exists
 
 const HomePage = () => {
   const theme = useTheme()
+  const [featuredProducts, setFeaturedProducts] = useState([])
+  const [trendingProducts, setTrendingProducts] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // Get featured products (first 4 products)
-  const featuredProducts = products.slice(0, 4)
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        // Fetch products from public API
+        const { data } = await axios.get("http://localhost:9090/api/v0/products")
+        const allProducts = data.data || []
 
-  // Get trending products (products with high ratings)
-  const trendingProducts = products.filter((p) => p.rating >= 4.7).slice(0, 4)
+        // Logic for featured (e.g., newest 4)
+        setFeaturedProducts(allProducts.slice(0, 4))
+
+        // Logic for trending (e.g., random 4 or high rating if available)
+        // For now, just taking the next 4
+        setTrendingProducts(allProducts.slice(4, 8))
+      } catch (error) {
+        console.error("Failed to fetch products", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProducts()
+  }, [])
 
   return (
     <Box>
@@ -103,8 +125,8 @@ const HomePage = () => {
                     maxWidth: "100%",
                     height: "auto",
                     // borderRadius: "2px",
-                    borderTopLeftRadius:"30px",
-                    borderBottomRightRadius:"30px"
+                    borderTopLeftRadius: "30px",
+                    borderBottomRightRadius: "30px"
                   }}
                 />
               </Box>
@@ -232,13 +254,17 @@ const HomePage = () => {
             View All
           </Button>
         </Box>
-        <Grid container spacing={3}>
-          {featuredProducts.map((product) => (
-            <Grid item xs={12} sm={6} md={3} key={product.id}>
-              <ProductCard product={product} />
-            </Grid>
-          ))}
-        </Grid>
+        {loading ? (
+          <Box display="flex" justifyContent="center"><CircularProgress /></Box>
+        ) : (
+          <Grid container spacing={3}>
+            {featuredProducts.map((product) => (
+              <Grid item xs={12} sm={6} md={3} key={product._id || product.id}>
+                <ProductCard product={product} />
+              </Grid>
+            ))}
+          </Grid>
+        )}
       </Container>
 
       {/* Trending Products */}
@@ -260,13 +286,17 @@ const HomePage = () => {
               View All
             </Button>
           </Box>
-          <Grid container spacing={3}>
-            {trendingProducts.map((product) => (
-              <Grid item xs={12} sm={6} md={3} key={product.id}>
-                <ProductCard product={product} />
-              </Grid>
-            ))}
-          </Grid>
+          {loading ? (
+            <Box display="flex" justifyContent="center"><CircularProgress /></Box>
+          ) : (
+            <Grid container spacing={3}>
+              {trendingProducts.map((product) => (
+                <Grid item xs={12} sm={6} md={3} key={product._id || product.id}>
+                  <ProductCard product={product} />
+                </Grid>
+              ))}
+            </Grid>
+          )}
         </Container>
       </Box>
 

@@ -25,10 +25,10 @@ import {
 } from '@mui/material';
 
 /* -------------------------------------------------- */
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
 
 /* Put your back-end base URL here.  */
-const API_BASE = 'http://localhost:9090';   
+const API_BASE = 'http://localhost:9090';
 
 /* -------------------------------------------------- */
 const paramsToObject = (searchParams) => {
@@ -52,18 +52,18 @@ const HomePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   /* ------------- query values ------------- */
-  const page     = Number(searchParams.get('page')) || 1;
-  const search   = searchParams.get('search')   || '';
+  const page = Number(searchParams.get('page')) || 1;
+  const search = searchParams.get('search') || '';
   const category = searchParams.get('category') || '';
-  const brand    = searchParams.get('brand')    || '';
+  const brand = searchParams.get('brand') || '';
   const minPrice = searchParams.get('minPrice') || '';
   const maxPrice = searchParams.get('maxPrice') || '';
 
   /* ------------- local state ------------- */
-  const [products, setProducts]   = useState([]);
+  const [products, setProducts] = useState([]);
   const [totalProducts, setTotal] = useState(0);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const debouncedSearch = useDebounce(search);
 
@@ -75,21 +75,23 @@ const HomePage = () => {
     const params = new URLSearchParams({
       page,
       ...(debouncedSearch && { name: debouncedSearch }),
-      ...(category       && { category }),
-      ...(brand          && { brand }),
-      ...(minPrice       && { minPrice }),
-      ...(maxPrice       && { maxPrice }),
+      ...(category && { category }),
+      ...(brand && { brand }),
+      ...(minPrice && { minPrice }),
+      ...(maxPrice && { maxPrice }),
     });
 
     axios
       .get(`${API_BASE}/api/v0/product/search`, { params }) // <- no trailing space
       .then(({ data }) => {
         setProducts(data.products || data.data || []);
-        setTotal(data.totalProducts || data.total || 0);
+        setTotal(data.total || data.totalProducts || 0); // Corrected property access based on backend change
       })
       .catch((e) => {
         console.error(e);
-        setError('Product not found or some error occurred.');
+        // setError('Product not found or some error occurred.'); // Don't show error for empty results
+        setProducts([]);
+        setTotal(0);
       })
       .finally(() => setLoading(false));
   }, [page, debouncedSearch, category, brand, minPrice, maxPrice]);
@@ -255,16 +257,15 @@ const HomePage = () => {
       )}
 
       {/* -------- pagination -------- */}
-      {totalProducts > PAGE_SIZE && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <Pagination
-            count={Math.ceil(totalProducts / PAGE_SIZE)}
-            page={page}
-            onChange={handlePageChange}
-            color="primary"
-          />
-        </Box>
-      )}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <Pagination
+          count={Math.ceil(totalProducts / PAGE_SIZE) || 1}
+          page={page}
+          onChange={handlePageChange}
+          color="primary"
+          disabled={totalProducts <= PAGE_SIZE}
+        />
+      </Box>
     </Container>
   );
 };

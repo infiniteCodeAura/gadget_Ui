@@ -14,6 +14,8 @@ import Signup from "./pages/Signup.jsx"
 import Contact from "./pages/Contact.jsx"
 import NotFound from "./pages/NotFound.jsx"
 import Dashboard from "./pages/Dashboard.jsx"
+import ProtectedRoute from "./components/ProtectedRoute.jsx"
+import PaymentCallback from "./pages/PaymentCallback.jsx"
 
 function App() {
   const { theme } = useTheme()
@@ -35,12 +37,29 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductList />} />
           <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/profile" element={<Profile />} />
+          <Route path="/cart" element={
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          } />
+          <Route path="/payment/khalti/callback" element={
+            <ProtectedRoute>
+              <PaymentCallback />
+            </ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={
+            <ProtectedRoute allowedRoles={['seller']}>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Box>

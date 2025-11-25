@@ -45,19 +45,32 @@ const api = axios.create({
   }
 });
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+const apiV3 = axios.create({
+  baseURL: '/api/v3',
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
+
+const addTokenInterceptor = (instance) => {
+  instance.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    return config;
+  });
+};
+
+addTokenInterceptor(api);
+addTokenInterceptor(apiV3);
 
 const Profile = () => {
 
-const token = localStorage.getItem("token");
+  const token = localStorage.getItem("token");
 
-if (!token) {
-  window.location.href = "/login"; // Redirect to login if not authenticated
-}
+  if (!token) {
+    window.location.href = "/login"; // Redirect to login if not authenticated
+  }
 
   /* ---------- states ---------- */
   const [profile, setProfile] = useState(null);
@@ -80,6 +93,8 @@ if (!token) {
   const [addrOpen, setAddrOpen] = useState(false);
   const [addrForm, setAddrForm] = useState({ phone: '', address: '', address1: '', city: '' });
   const [addresses, setAddresses] = useState([]);
+  const [editAddrOpen, setEditAddrOpen] = useState(false);
+  const [editAddrForm, setEditAddrForm] = useState({ phone: '', address: '', address1: '', city: '' });
 
   /* avatar */
   const avatarRef = useRef(null);
@@ -97,14 +112,6 @@ if (!token) {
   const [pwdForm, setPwdForm] = useState({ oldPassword: '', newPassword: '', confirm: '' });
   const [pwdLoading, setPwdLoading] = useState(false);
 
-  /* seller uploads */
-  const [photoUploadOpen, setPhotoUploadOpen] = useState(false);
-  const [videoUploadOpen, setVideoUploadOpen] = useState(false);
-  const [uploadProductId, setUploadProductId] = useState('');
-  const [uploadFile, setUploadFile] = useState(null);
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const photoInputRef = useRef(null);
-  const videoInputRef = useRef(null);
 
   /* ---------- fetch ---------- */
   const fetchProfile = async () => {
@@ -225,59 +232,48 @@ if (!token) {
         return;
       }
 
-      await api.post('/api/v1/buyer/address', addrForm);
+      await apiV3.post('/buyer/address', addrForm);
       setSnack({ open: true, msg: 'Delivery location updated', severity: 'success' });
       setAddrOpen(false);
       fetchProfile();
     } catch (err) {
       console.error('Address submission error:', err);
-      setSnack({ 
-        open: true, 
-        msg: err.response?.data?.message || 'Failed to add address. Please try again.', 
-        severity: 'error' 
+      setSnack({
+        open: true,
+        msg: err.response?.data?.message || 'Failed to add address. Please try again.',
+        severity: 'error'
       });
     }
   };
 
-  /* seller photo upload */
-  const handlePhotoUpload = async () => {
-    if (!uploadFile || !uploadProductId) return;
-    setUploadLoading(true);
-    const fd = new FormData();
-    fd.append('photo', uploadFile);
+  const handleAddressEdit = async () => {
     try {
-      await api.post(`/upload/product/${uploadProductId}/photo`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setSnack({ open: true, msg: 'Photo uploaded', severity: 'success' });
-      setPhotoUploadOpen(false);
+      // Validate required fields
+      if (!editAddrForm.phone || !editAddrForm.address || !editAddrForm.city) {
+        setSnack({ open: true, msg: 'Please fill all required fields', severity: 'error' });
+        return;
+      }
+
+      // Make sure phone number is valid
+      if (!/^\d{10}$/.test(editAddrForm.phone.replace(/[-\s]/g, ''))) {
+        setSnack({ open: true, msg: 'Please enter a valid 10-digit phone number', severity: 'error' });
+        return;
+      }
+
+      await apiV3.put('/buyer/address/update', editAddrForm);
+      setSnack({ open: true, msg: 'Address updated successfully', severity: 'success' });
+      setEditAddrOpen(false);
+      fetchProfile();
     } catch (err) {
-      setSnack({ open: true, msg: err.response?.data?.message || 'Upload failed', severity: 'error' });
-    } finally {
-      setUploadLoading(false);
-      setUploadFile(null);
+      console.error('Address edit error:', err);
+      setSnack({
+        open: true,
+        msg: err.response?.data?.message || 'Failed to update address. Please try again.',
+        severity: 'error'
+      });
     }
   };
 
-  /* seller video upload */
-  const handleVideoUpload = async () => {
-    if (!uploadFile || !uploadProductId) return;
-    setUploadLoading(true);
-    const fd = new FormData();
-    fd.append('video', uploadFile);
-    try {
-      await api.post(`/upload/product/${uploadProductId}/video`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setSnack({ open: true, msg: 'Video uploaded', severity: 'success' });
-      setVideoUploadOpen(false);
-    } catch (err) {
-      setSnack({ open: true, msg: err.response?.data?.message || 'Upload failed', severity: 'error' });
-    } finally {
-      setUploadLoading(false);
-      setUploadFile(null);
-    }
-  };
 
   if (loading) return <CircularProgress sx={{ mt: 10, mx: 'auto', display: 'block' }} />;
   if (!profile) return null;
@@ -306,9 +302,9 @@ if (!token) {
             >
               {/* <Avatar src={avatar || ''} sx={{ width: 100, height: 100, mx: 'auto' }} /> */}
 
-                            <Avatar src={ profile? `${baseUrl+profile.profile}` :" "  } sx={{ width: 100, height: 100, mx: 'auto' }} />
+              <Avatar src={profile ? `${baseUrl + profile.profile}` : " "} sx={{ width: 100, height: 100, mx: 'auto' }} />
 
-        
+
             </Badge>
 
 
@@ -317,29 +313,29 @@ if (!token) {
 
 
             <Box display="flex" alignItems="center" justifyContent="center" gap={1} mt={2}>
-              <Typography variant="h5" 
-              sx={{
-                fontWeight: "italic",
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-              }}
+              <Typography variant="h5"
+                sx={{
+                  fontWeight: "italic",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
               >
-                
-                {firstName} {lastName} 
+
+                {firstName} {lastName}
 
 
                 {profile.verifiedAs === "pro" ? (
-  <VerifiedIcon sx={{ color: "green" }} fontSize="small" />
-) : profile.verifiedAs === "ultimate" ? (
-  <VerifiedIcon sx={{ color: "blue" }} fontSize="small" />
-) : null}
-
-                
-                 </Typography> 
+                  <VerifiedIcon sx={{ color: "green" }} fontSize="small" />
+                ) : profile.verifiedAs === "ultimate" ? (
+                  <VerifiedIcon sx={{ color: "blue" }} fontSize="small" />
+                ) : null}
 
 
- 
+              </Typography>
+
+
+
 
 
               <IconButton size="small" onClick={() => setNameOpen(true)}>
@@ -360,11 +356,11 @@ if (!token) {
 
             <Box mt={2}>
               {/* <Chip label={role} color="primary" /> <Chip label={category} color="secondary" /> */}
-<Chip label={role} color="primary" />
-                            {/*  <Chip label={profile.verifiedAs} color={profile.verifiedAs === "pro" ? "primary" : "secondary"}  /> */}
+              <Chip label={role} color="primary" />
+              {/*  <Chip label={profile.verifiedAs} color={profile.verifiedAs === "pro" ? "primary" : "secondary"}  /> */}
 
             </Box>
-            
+
             {verified && (
               <Box mt={1}>
                 <Chip icon={<CheckCircle />} label={`Verified ${verifiedAs}`} color="success" />
@@ -422,23 +418,41 @@ if (!token) {
               {addresses.length ? (
                 addresses.map((a) => (
                   <Box key={a._id} mb={2} p={2} border={1} borderColor="divider" borderRadius={1}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      {a.fullName}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      📞 {a.phone}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      📍 {a.address}
-                    </Typography>
-                    {a.address1 && (
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        🏠 {a.address1}
-                      </Typography>
-                    )}
-                    <Typography variant="body2" color="text.secondary">
-                      🌆 {a.city}
-                    </Typography>
+                    <Box display="flex" justifyContent="space-between" alignItems="start">
+                      <Box flex={1}>
+                        <Typography variant="subtitle2" gutterBottom>
+                          {a.fullName}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          📞 {a.phone}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          📍 {a.address}
+                        </Typography>
+                        {a.address1 && (
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            🏠 {a.address1}
+                          </Typography>
+                        )}
+                        <Typography variant="body2" color="text.secondary">
+                          🌆 {a.city}
+                        </Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setEditAddrForm({
+                            phone: a.phone,
+                            address: a.address,
+                            address1: a.address1 || '',
+                            city: a.city
+                          });
+                          setEditAddrOpen(true);
+                        }}
+                      >
+                        <Edit fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Box>
                 ))
               ) : (
@@ -463,28 +477,6 @@ if (!token) {
                 </Typography>
                 <Button variant="contained" href="/dashboard">
                   Go to Dashboard
-                </Button>
-                <Button
-                  variant="outlined"
-                  sx={{ ml: 2 }}
-                  onClick={() => {
-                    setUploadProductId('');
-                    setUploadFile(null);
-                    setPhotoUploadOpen(true);
-                  }}
-                >
-                  Upload Product Photo
-                </Button>
-                <Button
-                  variant="outlined"
-                  sx={{ ml: 1 }}
-                  onClick={() => {
-                    setUploadProductId('');
-                    setUploadFile(null);
-                    setVideoUploadOpen(true);
-                  }}
-                >
-                  Upload Product Video
                 </Button>
               </Paper>
             </>
@@ -615,41 +607,49 @@ if (!token) {
         </DialogActions>
       </Dialog>
 
-      {/* Upload Photo Dialog */}
-      <Dialog open={photoUploadOpen} onClose={() => setPhotoUploadOpen(false)}>
-        <DialogTitle>Upload Product Photo</DialogTitle>
+      {/* Edit Address */}
+      <Dialog open={editAddrOpen} onClose={() => setEditAddrOpen(false)}>
+        <DialogTitle>Edit Delivery Address</DialogTitle>
         <DialogContent>
-          <TextField autoFocus margin="dense" label="Product ID" fullWidth value={uploadProductId} onChange={(e) => setUploadProductId(e.target.value)} />
-          <Button variant="outlined" component="label" sx={{ mt: 2 }}>
-            Choose Photo
-            <input hidden type="file" accept="image/*" ref={photoInputRef} onChange={(e) => setUploadFile(e.target.files[0])} />
-          </Button>
-          {uploadFile && <Typography variant="body2" sx={{ mt: 1 }}>{uploadFile.name}</Typography>}
+          <TextField
+            margin="dense"
+            label="Phone Number"
+            fullWidth
+            value={editAddrForm.phone}
+            onChange={(e) => setEditAddrForm({ ...editAddrForm, phone: e.target.value })}
+            type="tel"
+          />
+          <TextField
+            margin="dense"
+            label="Address"
+            fullWidth
+            value={editAddrForm.address}
+            onChange={(e) => setEditAddrForm({ ...editAddrForm, address: e.target.value })}
+            multiline
+            rows={2}
+            placeholder="Enter your main address"
+          />
+          <TextField
+            margin="dense"
+            label="Alternative Address"
+            fullWidth
+            value={editAddrForm.address1}
+            onChange={(e) => setEditAddrForm({ ...editAddrForm, address1: e.target.value })}
+            multiline
+            rows={2}
+            placeholder="Enter alternative address (optional)"
+          />
+          <TextField
+            margin="dense"
+            label="City"
+            fullWidth
+            value={editAddrForm.city}
+            onChange={(e) => setEditAddrForm({ ...editAddrForm, city: e.target.value })}
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPhotoUploadOpen(false)}>Cancel</Button>
-          <Button onClick={handlePhotoUpload} disabled={uploadLoading}>
-            {uploadLoading ? <CircularProgress size={20} /> : 'Upload'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Upload Video Dialog */}
-      <Dialog open={videoUploadOpen} onClose={() => setVideoUploadOpen(false)}>
-        <DialogTitle>Upload Product Video</DialogTitle>
-        <DialogContent>
-          <TextField autoFocus margin="dense" label="Product ID" fullWidth value={uploadProductId} onChange={(e) => setUploadProductId(e.target.value)} />
-          <Button variant="outlined" component="label" sx={{ mt: 2 }}>
-            Choose Video
-            <input hidden type="file" accept="video/*" ref={videoInputRef} onChange={(e) => setUploadFile(e.target.files[0])} />
-          </Button>
-          {uploadFile && <Typography variant="body2" sx={{ mt: 1 }}>{uploadFile.name}</Typography>}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setVideoUploadOpen(false)}>Cancel</Button>
-          <Button onClick={handleVideoUpload} disabled={uploadLoading}>
-            {uploadLoading ? <CircularProgress size={20} /> : 'Upload'}
-          </Button>
+          <Button onClick={() => setEditAddrOpen(false)}>Cancel</Button>
+          <Button onClick={handleAddressEdit} variant="contained">Update Address</Button>
         </DialogActions>
       </Dialog>
 

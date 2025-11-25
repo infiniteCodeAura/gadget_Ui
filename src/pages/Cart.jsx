@@ -50,7 +50,7 @@ const Cart = () => {
 
     try {
       const response = await axios.get(`${BASE_URL}/api/v3/user/cart/list`, {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${token}`
         },
       });
@@ -65,10 +65,10 @@ const Cart = () => {
       const rawItems = Array.isArray(cartObj?.items)
         ? cartObj.items
         : Array.isArray(cartObj?.item)
-        ? cartObj.item
-        : Array.isArray(cartObj)
-        ? cartObj
-        : [];
+          ? cartObj.item
+          : Array.isArray(cartObj)
+            ? cartObj
+            : [];
 
       if (rawItems && rawItems.length) {
         const items = rawItems.map((item) => ({
@@ -112,15 +112,15 @@ const Cart = () => {
       console.log("Updating quantity:", { itemId, isIncrement }); // For debugging
       const response = await axios.post(
         `${BASE_URL}/api/v3/user/cart/${itemId}/update`,
-        { 
+        {
           inc: isIncrement ? 1 : 0,
           dec: isIncrement ? 0 : 1
         },
-        { 
-          headers: { 
+        {
+          headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
-          } 
+          }
         }
       );
       console.log("Update response:", response.data); // For debugging
@@ -138,7 +138,7 @@ const Cart = () => {
         `${BASE_URL}/api/v3/product/delete/cart/${itemId}`,
         {},
         {
-          headers: { 
+          headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
@@ -181,7 +181,54 @@ const Cart = () => {
     }
   }
 
-  const handleOnline = () => setSnackbar({ open: true, message: "Online payment – update soon!", severity: "info" })
+  const handleOnline = async () => {
+    if (!cartItems.length) return;
+
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/v3/payment/khalti/initiate`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.payment_url) {
+        window.location.href = response.data.payment_url;
+      }
+    } catch (err) {
+      console.error("Online payment error:", err);
+
+      // Extract error details from response
+      const errorData = err.response?.data?.error;
+      const errorMessage = err.response?.data?.message;
+
+      // Check for specific Khalti validation errors
+      if (errorData?.error_key === "validation_error" && errorData?.detail?.includes("Amount should be between")) {
+        setSnackbar({
+          open: true,
+          message: "Payment amount must be between Rs 10 and Rs 1000. Please adjust your cart total or contact support.",
+          severity: "warning"
+        });
+      } else if (errorData?.detail?.includes("Invalid token")) {
+        setSnackbar({
+          open: true,
+          message: "Payment gateway authentication failed. Please contact support.",
+          severity: "error"
+        });
+      } else if (errorMessage) {
+        setSnackbar({
+          open: true,
+          message: errorMessage,
+          severity: "error"
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: "Payment initiation failed. Please try again or use Cash on Delivery.",
+          severity: "error"
+        });
+      }
+    }
+  }
 
   /* ---------- loading & empty ---------- */
   if (loading) {
@@ -204,10 +251,10 @@ const Cart = () => {
           <Typography color="text.secondary" paragraph>
             Looks like you haven't added any items yet.
           </Typography>
-          <Button 
-            variant="contained" 
-            component={Link} 
-            to="/products" 
+          <Button
+            variant="contained"
+            component={Link}
+            to="/products"
             startIcon={<ArrowBack />}
             size="large"
           >
@@ -221,150 +268,150 @@ const Cart = () => {
   /* ---------- render ---------- */
   return (
     <>
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h3" gutterBottom>
-        Shopping Cart
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-        {cartSummary.totalQuantity} {cartSummary.totalQuantity === 1 ? "item" : "items"} in your cart
-      </Typography>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Typography variant="h3" gutterBottom>
+          Shopping Cart
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+          {cartSummary.totalQuantity} {cartSummary.totalQuantity === 1 ? "item" : "items"} in your cart
+        </Typography>
 
-      <Grid container spacing={4}>
-        {/* Cart Items */}
-        <Grid item xs={12} md={8}>
-          <Paper elevation={1}>
-            {cartItems.map((item, idx) => (
-              <Box key={item.id}>
-                <Box sx={{ p: 3 }}>
-                  <Grid container spacing={3} alignItems="center">
-                    {/* Placeholder image */}
-                    <Grid item xs={12} sm={3}>
-                      {/* <CardMedia
+        <Grid container spacing={4}>
+          {/* Cart Items */}
+          <Grid item xs={12} md={8}>
+            <Paper elevation={1}>
+              {cartItems.map((item, idx) => (
+                <Box key={item.id}>
+                  <Box sx={{ p: 3 }}>
+                    <Grid container spacing={3} alignItems="center">
+                      {/* Placeholder image */}
+                      <Grid item xs={12} sm={3}>
+                        {/* <CardMedia
                         component="img"
                         height="120"
                         image="/placeholder.svg"
                         alt="Product"
                         sx={{ objectFit: "contain", borderRadius: 1 }}
                       /> */}
-                      <Image fontSize="large" color="disabled" sx={{ fontSize: 80 }} />
-                    </Grid>
-                    {/* Product info */}
-                    <Grid item xs={12} sm={5}>
-                      <Typography variant="h6">Product ID: {item.id}</Typography>
-                      <Typography variant="h6" color="primary">
-                        Rs {item.price.toLocaleString()}
-                      </Typography>
-                    </Grid>
-
-                    {/* Quantity controls */}
-                    <Grid item xs={12} sm={2}>
-                      <Box sx={{ 
-                        display: "flex", 
-                        alignItems: "center", 
-                        gap: 1,
-                        border: 1,
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        p: 1
-                      }}>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleQuantityChange(item.id, false)}
-                          disabled={item.quantity <= 1}
-                        >
-                          <Remove />
-                        </IconButton>
-                        <Typography sx={{ minWidth: 40, textAlign: 'center' }}>
-                          {item.quantity}
+                        <Image fontSize="large" color="disabled" sx={{ fontSize: 80 }} />
+                      </Grid>
+                      {/* Product info */}
+                      <Grid item xs={12} sm={5}>
+                        <Typography variant="h6">Product ID: {item.id}</Typography>
+                        <Typography variant="h6" color="primary">
+                          Rs {item.price.toLocaleString()}
                         </Typography>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleQuantityChange(item.id, true)}
-                          disabled={item.quantity >= 6}
-                        >
-                          <Add />
-                        </IconButton>
-                      </Box>
-                    </Grid>
+                      </Grid>
 
-                    {/* Item total */}
-                    <Grid item xs={12} sm={2}>
-                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
-                        <Typography variant="" sx={{ fontWeight: "bold" }}>
-                          Rs {(item.price * item.quantity).toLocaleString()}
-                        </Typography>
-                        <IconButton color="error" onClick={() => handleRemove(item.id)}>
-                          <Delete />
-                        </IconButton>
-                      </Box>
+                      {/* Quantity controls */}
+                      <Grid item xs={12} sm={2}>
+                        <Box sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          border: 1,
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          p: 1
+                        }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleQuantityChange(item.id, false)}
+                            disabled={item.quantity <= 1}
+                          >
+                            <Remove />
+                          </IconButton>
+                          <Typography sx={{ minWidth: 40, textAlign: 'center' }}>
+                            {item.quantity}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleQuantityChange(item.id, true)}
+                            disabled={item.quantity >= 6}
+                          >
+                            <Add />
+                          </IconButton>
+                        </Box>
+                      </Grid>
+
+                      {/* Item total */}
+                      <Grid item xs={12} sm={2}>
+                        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+                          <Typography variant="" sx={{ fontWeight: "bold" }}>
+                            Rs {(item.price * item.quantity).toLocaleString()}
+                          </Typography>
+                          <IconButton color="error" onClick={() => handleRemove(item.id)}>
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      </Grid>
                     </Grid>
-                  </Grid>
+                  </Box>
+                  {idx < cartItems.length - 1 && <Divider />}
                 </Box>
-                {idx < cartItems.length - 1 && <Divider />}
+              ))}
+
+              <Box sx={{ p: 3, display: "flex", justifyContent: "space-between" }}>
+                <Button variant="outlined" component={Link} to="/products" startIcon={<ArrowBack />}>
+                  Continue Shopping
+                </Button>
+                <Button variant="outlined" color="error" onClick={handleFlush}>
+                  Clear Cart
+                </Button>
               </Box>
-            ))}
+            </Paper>
+          </Grid>
 
-            <Box sx={{ p: 3, display: "flex", justifyContent: "space-between" }}>
-              <Button variant="outlined" component={Link} to="/products" startIcon={<ArrowBack />}>
-                Continue Shopping
-              </Button>
-              <Button variant="outlined" color="error" onClick={handleFlush}>
-                Clear Cart
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Order Summary */}
-        <Grid item xs={12} md={4}>
-          <Paper elevation={1} sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Order Summary
-            </Typography>
-            <List>
-              <ListItem sx={{ px: 0 }}>
-                <ListItemText primary="Total Quantity" />
-                <Typography>{cartSummary.totalQuantity}</Typography>
-              </ListItem>
-              <ListItem sx={{ px: 0 }}>
-                <ListItemText primary="Total Price" />
-                <Typography>Rs {cartSummary.totalPrice.toLocaleString()}</Typography>
-              </ListItem>
-            </List>
-
-            <Box sx={{ mt: 3, display: "flex", flexDirection: "column", gap: 2 }}>
-              <Button variant="contained" fullWidth onClick={handleCOD}>
-                Cash on Delivery
-              </Button>
-              <Button variant="outlined" fullWidth onClick={handleOnline}>
-                Online Payment
-              </Button>
-            </Box>
-
-            <Box sx={{ mt: 2 }}>
-              <Security color="primary" fontSize="small" />
-              <Typography variant="caption" sx={{ ml: 1 }}>
-                Secure checkout
+          {/* Order Summary */}
+          <Grid item xs={12} md={4}>
+            <Paper elevation={1} sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Order Summary
               </Typography>
-            </Box>
-          </Paper>
+              <List>
+                <ListItem sx={{ px: 0 }}>
+                  <ListItemText primary="Total Quantity" />
+                  <Typography>{cartSummary.totalQuantity}</Typography>
+                </ListItem>
+                <ListItem sx={{ px: 0 }}>
+                  <ListItemText primary="Total Price" />
+                  <Typography>Rs {cartSummary.totalPrice.toLocaleString()}</Typography>
+                </ListItem>
+              </List>
+
+              <Box sx={{ mt: 3, display: "flex", flexDirection: "column", gap: 2 }}>
+                <Button variant="contained" fullWidth onClick={handleCOD}>
+                  Cash on Delivery
+                </Button>
+                <Button variant="outlined" fullWidth onClick={handleOnline}>
+                  Online Payment
+                </Button>
+              </Box>
+
+              <Box sx={{ mt: 2 }}>
+                <Security color="primary" fontSize="small" />
+                <Typography variant="caption" sx={{ ml: 1 }}>
+                  Secure checkout
+                </Typography>
+              </Box>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
-    </Container>
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
+      </Container>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
           onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
-          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+          severity={snackbar.severity}
+          sx={{ width: "100%" }}
         >
-          <Alert
-            onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
-            severity={snackbar.severity}
-            sx={{ width: "100%" }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   )
 }
